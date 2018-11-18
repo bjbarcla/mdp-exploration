@@ -115,6 +115,9 @@
 (defstruct gridworld
     n-rows n-cols
     states
+    sink-reward-alist
+    sinks
+    keep-outs
     transitions
     rewards)
 
@@ -168,7 +171,8 @@
                   ))
               all-cell-states)
     
-    (make-gridworld n-rows: n-rows n-cols: n-cols states: all-cell-states transitions: tt-ht rewards: reward-ht)))
+    (make-gridworld n-rows: n-rows n-cols: n-cols states: all-cell-states transitions: tt-ht rewards: reward-ht
+                    sinks: sinks sink-reward-alist: sink-reward-alist keep-outs: keep-outs)))
 
 
 (define (print-tt gw)
@@ -261,15 +265,37 @@
       rv)))
              
   
-         
+(define (argmax-alist al)
+  (let loop ((curargmax #f) (curmax #f) (rest-al al))
+    (cond
+     ((null? rest-al)
+      curargmax)
+     ((or (not curmax) (> (cdar rest-al) curmax))
+      (loop (caar rest-al) (cdar rest-al) (cdr rest-al)))
+     (else
+      (loop curargmax curmax (cdr rest-al)))))) 
+
+(define (action->string a)
+  (case a
+    ((up) "^")
+    ((down) "v")
+    ((left) "<")
+    ((right) ">")
+    (else
+     (print "invalid action ["action"]")
+     (exit 1))))
+
 
 (define (value-iteration gw #!key (reltol 0.0001) (gamma 0.1))
-  (let* ((states        (gridworld-states      gw))
-         (n-states      (length states)           )
-         (transitions   (gridworld-transitions gw))
-         (R             (gridworld-rewards     gw))
-         (state->idx-ht (make-hash-table))
-         (state->idx    (lambda (s) (hash-table-ref state->idx-ht s)))) ;; TODO: vectorize hash tables for speedup
+  (let* ((states            (gridworld-states              gw))
+         (n-states          (length states)                   )
+         (sinks             (gridworld-sinks               gw))
+         (sink-reward-alist (gridworld-sink-reward-alist   gw))
+         (keep-outs         (gridworld-keep-outs           gw))
+         (transitions       (gridworld-transitions         gw))
+         (R                 (gridworld-rewards             gw))
+         (state->idx-ht     (make-hash-table))
+         (state->idx        (lambda (s) (hash-table-ref state->idx-ht s)))) ;; TODO: vectorize hash tables for speedup
 
     ;; initialize lookup idx by state
     (for-each (lambda (idx)
@@ -278,38 +304,56 @@
          
     (let loop ((Ut (make-vector n-states 0)) (round 1))
       (let*   ((Ut+1 (make-vector n-states 0))
-               (policy (make-vector n-states "xxx")))
+               (policy-str (make-vector n-states "xxx"))
+               (policy     (make-vector n-states #f)))
+               
         (for-each
          (lambda (idx)
            (let* ((s  (list-ref states idx))
                   (r  (hash-table-ref R s))
                   (actions-table (hash-table-ref transitions s))
-                  (actions (hash-table-keys actions-table)))
+                  (actions (hash-table-keys actions-table))
+                  (utils-by-action-alist
+                   (map
+                    (lambda (action)
+                      (cons action (apply
+                                    +
+                                    (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
+                                      (map
+                                       (lambda (prob+nextstate-pair)
+                                         (let* ((probability  (car prob+nextstate-pair))
+                                                (next-state   (cdr prob+nextstate-pair))
+                                                (Ut_next-state (vector-ref Ut (state->idx next-state))))
+                                           (* probability Ut_next-state)))
+                                       prob+nextstate-pairs)))))
+                    actions))
+                  (best-action (argmax-alist utils-by-action-alist))
+                  (best-next-util (alist-ref best-action utils-by-action-alist))
+                  )
 
+             (vector-set! policy idx best-action)
+             (vector-set! policy-str idx
+                          (cond
+                           ((member s sinks)
+                            (->string (alist-ref s sink-reward-alist equal?)))
+                           ((member s keep-outs)
+                            "X")
+                           (else
+                            (action->string best-action)))
+
+                          )
              (vector-set!
               Ut+1 idx 
               (+ r (* gamma
-                      (apply max (map
-                                  (lambda (action)
-                                    (apply
-                                     +
-                                     (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
-                                       (map
-                                        (lambda (prob+nextstate-pair)
-                                          (let* ((probability  (car prob+nextstate-pair))
-                                                 (next-state   (cdr prob+nextstate-pair))
-                                                 (Ut_next-state (vector-ref Ut (state->idx next-state))))
-                                            (* probability Ut_next-state)))
-                                     prob+nextstate-pairs))))
-                                  actions)))))))
+                      best-next-util)))))
          (iota n-states))
         (let* ((rmse (vector-rmse Ut Ut+1)))
           (cond
            ((> reltol rmse)
             (print "converged on round "round)
             (print (gridworld-format-vector gw Ut+1 flavor: 'num))
-            (print (gridworld-format-vector gw policy flavor: 'string))
-            #t
+            (print (gridworld-format-vector gw policy-str flavor: 'string))
+            policy ;;; return value
             )
            (else
             ;;(print "Round "round":\n  Ut("Ut") -> Ut+1("Ut+1")")
@@ -321,8 +365,9 @@
 
 
 
-(let* ((gw1 (init-gridworld 3 4) ))
-  (value-iteration gw1 gamma: 0.9))
+(let* ((gw1 (init-gridworld 3 4 keep-outs: '((1 . 1))) ))
+  (let* ((policy (value-iteration gw1 gamma: 0.8)))
+    (print policy)))
 
 
 
