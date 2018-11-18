@@ -209,7 +209,13 @@
                 (hash-table-set! state->idx-ht (list-ref states idx) idx))
               (iota n-states))
 
-    (let* ((cell-width 8)
+    (let* ((cell-width (cond
+                        ((eq? flavor 'num) 8)
+                        ((eq? flavor 'string) (apply max (map string-length (vector->list vec))))
+                        (else
+                         (print "2 unknown flavor: ["flavor"]")
+                         (exit 1)
+                         )))
            (row-divider
             (conc
              "\n|"
@@ -240,6 +246,8 @@
                                          (cond
                                           ((eq? flavor 'num)
                                            (fmt #f (pad/left cell-width (num val 10 2))))
+                                          ((eq? flavor 'string)
+                                           (fmt #f (pad cell-width val)))
                                           (else
                                            (print "unknown flavor: ["flavor"]")
                                            (exit 1))))))
@@ -270,7 +278,7 @@
          
     (let loop ((Ut (make-vector n-states 0)) (round 1))
       (let*   ((Ut+1 (make-vector n-states 0))
-               (policy (make-vector n-states 0)))
+               (policy (make-vector n-states "xxx")))
         (for-each
          (lambda (idx)
            (let* ((s  (list-ref states idx))
@@ -299,7 +307,8 @@
           (cond
            ((> reltol rmse)
             (print "converged on round "round)
-            (print (gridworld-format-vector gw Ut+1))
+            (print (gridworld-format-vector gw Ut+1 flavor: 'num))
+            (print (gridworld-format-vector gw policy flavor: 'string))
             #t
             )
            (else
