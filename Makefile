@@ -4,7 +4,7 @@ SHELL=/bin/bash
 python_exe=python3.6
 
 datasets_dir=$(PWD)/datasets
-pips=jupyter scipy pandas matplotlib scikit-learn kaggle seaborn numpy pyyaml google-cloud-bigquery xlrd graphviz geopy kaggle psutil memory_profiler pymdptoolbox
+pips=jupyter scipy pandas matplotlib scikit-learn kaggle seaborn numpy pyyaml google-cloud-bigquery xlrd graphviz geopy kaggle psutil memory_profiler pymdptoolbox cvxopt
 
 
 venv_name=venv

@@ -151,4 +151,6 @@ https://github.com/aimacode/aima-python/blob/master/mdp.py
 
 https://github.com/sawcordwell/pymdptoolbox
 
+gaps vi pi q
+
  

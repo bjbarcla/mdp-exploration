@@ -1,0 +1,13 @@
+
+We choose two environments to explore by the various agents.  The
+first environment is a 3x4 grid-world and the second is a 4x6
+grid-world.  All states, unless the state is a sink state, will share
+a default reward that we will vary.  There will be two sink states -
+the final goal state with a high reward, placed far from the initial
+state, and an "temptation" award, which has an intermediate value, but
+is closer to the initial state than the final goal.  The motivation is
+to explore how varying the parameters of the problem will affect the
+agent, to see what biases the agent to falling for the closer
+temptation versus travelling the full distance to the final reward.
+
+Our first experiment is to employ value iteration and policy iteration.  We also vary the non-
