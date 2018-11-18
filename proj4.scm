@@ -199,16 +199,7 @@
                 (vector->list bvec))))
    0.5))
 
-   
-(define (vector-converged? avec bvec reltol)
-  (let* ((err (vector-rmse avec bvec)))
-    (print "err is "err)
-    (if (< (vector-rmse avec bvec) reltol)
-        #t
-        #f)))
-
 (define (gridworld-format-vector gw vec #!key (flavor 'num) (cols (gridworld-n-cols gw)) (rows (gridworld-n-rows gw)))
-
   (let* ((states        (gridworld-states gw))
          (n-states      (length states))
          (state->idx-ht (make-hash-table))
@@ -218,24 +209,45 @@
                 (hash-table-set! state->idx-ht (list-ref states idx) idx))
               (iota n-states))
 
-    (let ((rv (string-join
-               (map (lambda (row)
-                      (string-join 
-                       (map (lambda (col)
-                              (let* ((state (cons row col))
-                                     (idx   (state->idx state))
-                                     (val   (vector-ref vec idx)))
-                                (conc
-                                 (cond
-                                  ((eq? flavor 'num)
-                                   (fmt #f (pad/left 8 (num val 10 3))))
-                                  (else
-                                   (print "unknown flavor: ["flavor"]")
-                                   (exit 1))))))
-                            (iota cols))
-                       " | "))
-                    (reverse (iota rows)))
-               "\n")))
+    (let* ((cell-width 8)
+           (row-divider
+            (conc
+             "\n|"
+             (string-join
+              (map (lambda (colidx)
+                     (apply conc (map (lambda (x) "-") (iota (+ cell-width 2)))))
+                     (iota cols))
+              "+") "|"))
+           (row-divider2
+            (conc
+             "\n+"
+             (string-join
+              (map (lambda (colidx)
+                     (apply conc (map (lambda (x) "-") (iota (+ cell-width 2)))))
+                     (iota cols))
+              "+") "+"))
+           (rv (conc
+                row-divider2 "\n"
+                (conc (string-join
+                 (map (lambda (row)
+                        (conc "| "
+                              (string-join 
+                               (map (lambda (col)
+                                      (let* ((state (cons row col))
+                                             (idx   (state->idx state))
+                                             (val   (vector-ref vec idx)))
+                                        (conc
+                                         (cond
+                                          ((eq? flavor 'num)
+                                           (fmt #f (pad/left cell-width (num val 10 2))))
+                                          (else
+                                           (print "unknown flavor: ["flavor"]")
+                                           (exit 1))))))
+                                    (iota cols))
+                               " | ")
+                              " |" (if (eq? row 0) row-divider2 row-divider)))
+                      (reverse (iota rows))) ;; bottom row is 0 ; top row is n-rows-1, so print out last row first.
+                 "\n")))))
       ;;(print rv)
       ;;(exit 1)
       rv)))
@@ -257,7 +269,8 @@
               (iota n-states))
          
     (let loop ((Ut (make-vector n-states 0)) (round 1))
-      (let*   ((Ut+1 (make-vector n-states 0)))
+      (let*   ((Ut+1 (make-vector n-states 0))
+               (policy (make-vector n-states 0)))
         (for-each
          (lambda (idx)
            (let* ((s  (list-ref states idx))
@@ -267,38 +280,40 @@
 
              (vector-set!
               Ut+1 idx 
-              (+ r (apply max (map
-                               (lambda (action)
-                                 (apply
-                                  +
-                                  (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
-                                    (map
-                                     (lambda (prob+nextstate-pair)
-                                       (let* ((probability  (car prob+nextstate-pair))
-                                              (next-state   (cdr prob+nextstate-pair))
-                                              (Ut_next-state (vector-ref Ut (state->idx next-state))))
-                                         (* probability Ut_next-state)))
+              (+ r (* gamma
+                      (apply max (map
+                                  (lambda (action)
+                                    (apply
+                                     +
+                                     (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
+                                       (map
+                                        (lambda (prob+nextstate-pair)
+                                          (let* ((probability  (car prob+nextstate-pair))
+                                                 (next-state   (cdr prob+nextstate-pair))
+                                                 (Ut_next-state (vector-ref Ut (state->idx next-state))))
+                                            (* probability Ut_next-state)))
                                      prob+nextstate-pairs))))
-                               actions))))))
+                                  actions)))))))
          (iota n-states))
-        (cond
-         ((vector-converged? Ut Ut+1 reltol)
-          (print "converged on round "round)
-          #t
-          )
-         (else
-          ;;(print "Round "round":\n  Ut("Ut") -> Ut+1("Ut+1")")
-          (print (gridworld-format-vector gw Ut+1))
-                                        ;(sleep 2)
-          (loop Ut+1 (add1 round))))))   ))
-        
+        (let* ((rmse (vector-rmse Ut Ut+1)))
+          (cond
+           ((> reltol rmse)
+            (print "converged on round "round)
+            (print (gridworld-format-vector gw Ut+1))
+            #t
+            )
+           (else
+            ;;(print "Round "round":\n  Ut("Ut") -> Ut+1("Ut+1")")
+            
+            ;;(sleep 2)
+            (loop Ut+1 (add1 round)))))))))
 
-                                
+
+
 
 
 (let* ((gw1 (init-gridworld 3 4) ))
-  (print gw1)
-  (value-iteration gw1))
+  (value-iteration gw1 gamma: 0.9))
 
 
 
