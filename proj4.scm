@@ -1,10 +1,11 @@
 #!/usr/bin/env csi -s
 
 ;;(use matchable)
-(use typed-records) ;; provides defstruct
-(use srfi-69)       ;; provides hash-tables
-(use posix)         ;; provides sleep
-(use fmt)           ;; provides fmt
+(use typed-records)  ;; provides defstruct
+(use srfi-69)        ;; provides hash tables
+(use posix)          ;; provides sleep
+(use fmt)            ;; provides string formatter
+(use linear-algebra) ;; provide make-matrix invert-matrix and m* (matrix multiplier)
 
 (set! *debug* #f)
 (define (dprint . args)
@@ -203,6 +204,16 @@
                 (vector->list bvec))))
    0.5))
 
+(define (vector-stable? pvec cvec)
+  (fold (lambda (p c prev)
+          (if (not prev)
+              #f
+              (equal? p c)))
+        #t
+        (vector->list pvec)
+        (vector->list cvec)))
+
+
 (define (gridworld-format-vector gw vec #!key (flavor 'num) (cols (gridworld-n-cols gw)) (rows (gridworld-n-rows gw)))
   (let* ((states        (gridworld-states gw))
          (n-states      (length states))
@@ -236,6 +247,14 @@
                      (apply conc (map (lambda (x) "-") (iota (+ cell-width 2)))))
                      (iota cols))
               "+") "+"))
+           (row-divider3
+            (conc
+             "\nI"
+             (string-join
+              (map (lambda (colidx)
+                     (apply conc (map (lambda (x) "-") (iota (+ cell-width 2)))))
+                     (iota cols))
+              "+") "+"))
            (rv (conc
                 row-divider2 "\n"
                 (conc (string-join
@@ -251,19 +270,53 @@
                                           ((eq? flavor 'num)
                                            (fmt #f (pad/left cell-width (num val 10 2))))
                                           ((eq? flavor 'string)
-                                           (fmt #f (pad cell-width val)))
+                                           (fmt #f (pad cell-width (->string val))))
                                           (else
                                            (print "unknown flavor: ["flavor"]")
                                            (exit 1))))))
                                     (iota cols))
                                " | ")
-                              " |" (if (eq? row 0) row-divider2 row-divider)))
+                              " |" (if (eq? row 0) row-divider3 row-divider)))
                       (reverse (iota rows))) ;; bottom row is 0 ; top row is n-rows-1, so print out last row first.
                  "\n")))))
       ;;(print rv)
       ;;(exit 1)
       rv)))
-             
+
+(define (gridworld-policy-blurb gw Pt)
+  (let* ((states            (gridworld-states              gw))
+         (n-states          (length states)                   )
+         (sinks             (gridworld-sinks               gw))
+         (sink-reward-alist (gridworld-sink-reward-alist   gw))
+         (keep-outs         (gridworld-keep-outs           gw))
+         (state->idx-ht (make-hash-table))
+         (state->idx    (lambda (s) (hash-table-ref state->idx-ht s)))) ;; TODO: vectorize hash tables for speedup
+
+
+    ;; initialize lookup idx by state
+    (for-each (lambda (idx)
+                (hash-table-set! state->idx-ht (list-ref states idx) idx))
+              (iota n-states))
+
+    (let ((policy-str
+           (list->vector
+            (map (lambda (idx)
+                   (let ((action (vector-ref Pt idx))
+                         (state  (list-ref states idx)))
+                     (cond
+                      ((member state keep-outs) "X")
+                      ((member state sinks)
+                       (->string (alist-ref state sink-reward-alist equal?)))
+                      ((eq? 'up    action) "^")
+                      ((eq? 'down  action) "v")
+                      ((eq? 'left  action) "<")
+                      ((eq? 'right action) ">")
+                      (else
+                       (print "ERROR bad state ["state"] or bad policy action ["action"]")
+                       (exit 1)))))
+                 (iota n-states)))))
+      (gridworld-format-vector gw policy-str flavor: 'string))))
+
   
 (define (argmax-alist al)
   (let loop ((curargmax #f) (curmax #f) (rest-al al))
@@ -362,12 +415,184 @@
             (loop Ut+1 (add1 round)))))))))
 
 
+(define (solve-lineq A B)
+  ;; AX=B
+  ;; A^-1*A*X = A-1*B
+  ;; X = A-1*B
+  ;;(print A)";;"B)
+  (let* ((Ainv (invert-matrix A)))
+    (when (not Ainv)
+      (print "Could not invert "A)
+      (exit 1))
+    (let* ((X   (m* Ainv B)))
+      (dprint "X:"X)
+      X)))
 
+
+(define (m+= M r c v)
+  (let* ((cur-v (or (matrix-ref M r c)0))
+         (new-v (+ cur-v v)))
+    (matrix-set! M r c new-v)
+    new-v))
+
+(define (evaluate-policy Pt gw gamma)
+  ;; returns Ut
+  (let* ((states            (gridworld-states              gw))
+         (actions           (gridworld-actions)               )
+         (n-states          (length states)                   )
+         (sinks             (gridworld-sinks               gw))
+         (sink-reward-alist (gridworld-sink-reward-alist   gw))
+         (keep-outs         (gridworld-keep-outs           gw))
+         (transitions       (gridworld-transitions         gw))
+         (R                 (gridworld-rewards             gw))
+         (A                 (make-matrix n-states n-states   ))
+         (B                 (make-matrix n-states 1          ))
+         (state->idx-ht     (make-hash-table))
+         (state->idx        (lambda (s) (hash-table-ref state->idx-ht s)))) ;; TODO: vectorize hash tables for speedup
+    
+    ;; initialize lookup idx by state
+    (for-each (lambda (idx)
+                (hash-table-set! state->idx-ht (list-ref states idx) idx))
+              (iota n-states))
+
+    ;; initialize A and B
+    (for-each
+     (lambda (r)
+       (matrix-set! B r 0 0)
+       (for-each
+        (lambda (c)
+          (matrix-set! A r c 0))
+        (iota n-states)))
+     (iota n-states))
+
+    ;; populate A and B
+    ;;
+    ;; Ut(s) = R(s) + gamma*sum_over_s'[ T(s,Pt(s),s'))*Ut(s') )
+    ;;   rewrite to suit AX = B
+    ;; R(s) = Ut(s) - gamma*sum_over_s'[ T(s,Pt(s),s'))*Ut(s') )
+    ;;
+    (for-each
+     (lambda (idx)
+       (let* ((state    (list-ref states idx))
+              (reward   (hash-table-ref R state))
+              (action   (vector-ref Pt idx))
+              (actions-table (hash-table-ref transitions state))
+              (prob+nextstate-pairs (hash-table-ref actions-table action)))
+         (matrix-set! B idx 0 reward) ;; R(s)
+         (m+= A idx idx 1)         ;; Ut(s)
+         (for-each (lambda (prob+nextstate-pair)
+                     (let* ((probability     (car prob+nextstate-pair))
+                            (next-state      (cdr prob+nextstate-pair))
+                            (next-state-idx  (state->idx next-state)))
+                       ;; - gamma*sum_over_s'[ T(s,Pt(s),s'))*Ut(s') )
+                       (m+= A idx next-state-idx (* -1 gamma probability))))
+                   prob+nextstate-pairs)))
+     (iota n-states))
+    ;; solve for Ut
+    (let* ((Ut (vector-ref (matrix-transpose (solve-lineq A B)) 0)))
+      (dprint "Got Ut="Ut)
+      Ut)))
+
+(define (improve-policy Ut gw)
+  ;; Pt+1 = argmax_a[ sum_over( T(s,a,s')*Ut(s') ) ]
+  (let* ((states            (gridworld-states gw))
+         (actions           (gridworld-actions))
+         (transitions       (gridworld-transitions         gw))
+         (n-states          (length states))
+         (state->idx-ht     (make-hash-table))
+         (R                 (gridworld-rewards gw))
+         (state->idx        (lambda (s) (hash-table-ref state->idx-ht s)))) ;; TODO: vectorize hash tables for speedup
+    ;; initialize lookup idx by state
+    (for-each (lambda (idx)
+                (hash-table-set! state->idx-ht (list-ref states idx) idx))
+              (iota n-states))
+    
+    (list->vector
+     (map (lambda (idx)
+            (let* ((s             (list-ref states idx))
+                   (actions-table (hash-table-ref transitions s))
+                   (actions       (hash-table-keys actions-table))
+                   (r             (hash-table-ref R s))
+                   (utils-by-action-alist
+                    (map
+                     (lambda (action)
+                       (cons action (apply
+                                     +
+                                     (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
+                                       (map
+                                        (lambda (prob+nextstate-pair)
+                                          (let* ((probability  (car prob+nextstate-pair))
+                                                 (next-state   (cdr prob+nextstate-pair))
+                                                 (Ut_next-state (vector-ref Ut (state->idx next-state))))
+                                            (* probability Ut_next-state)))
+                                        prob+nextstate-pairs)))))
+                     actions))
+                   (best-action (argmax-alist utils-by-action-alist)))
+              ;; Pt+1 = argmax_a[ sum_over( T(s,a,s')*Ut(s') ) ]
+              best-action))
+          (iota n-states)))))
+
+(define (policy-iteration gw #!key (gamma 0.1))
+  (let* ((states            (gridworld-states              gw))
+         (actions           (gridworld-actions)               )
+         (n-states          (length states)                   ))
+         
+    (let loop ((Pt   (list->vector (map (lambda (idx) (car actions)) (iota n-states))))  (round 1))
+      (let*   ((Ut   (evaluate-policy Pt gw gamma))
+               (Pt+1 (improve-policy Ut gw)))
+        (cond
+         ((vector-stable? Pt Pt+1)
+          (print "Arrived at policy after "round" rounds")
+          
+
+          Pt) ;; return policy
+         (else (loop Pt+1 (add1 round))))))))
+
+
+
+
+
+
+
+
+
+(define (toy)
+  (let* ((n 2)
+         (A (make-matrix n n))
+         (B (make-matrix n 1)))
+
+    (matrix-set! A 0 0 4)
+    (matrix-set! A 0 1 11)
+    (matrix-set! A 1 0 3)
+    (matrix-set! A 1 1 8)
+    (matrix-set! B 0 0 6)
+    (matrix-set! B 1 0 7)
+    
+    (let* ((res (solve-lineq A B)))
+      (print res)
+      res)))
+;;(toy)
+;;(exit 0)
+           
+   
+    
+    
+         
 
 
 (let* ((gw1 (init-gridworld 3 4 keep-outs: '((1 . 1))) ))
+
   (let* ((policy (value-iteration gw1 gamma: 0.8)))
-    (print policy)))
+    (print policy))
+
+
+  (let* ((policy (policy-iteration gw1 gamma: 0.8)))
+    (print (gridworld-policy-blurb gw1 policy))
+    (print policy))
+
+
+  
+)
 
 
 
