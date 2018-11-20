@@ -6,6 +6,7 @@
 (use posix)          ;; provides sleep
 (use fmt)            ;; provides string formatter
 (use linear-algebra) ;; provide make-matrix invert-matrix and m* (matrix multiplier)
+(use matchable)      ;; provides match destructuring operator
 
 (set! *debug* #f)
 (define (dprint . args)
@@ -357,7 +358,7 @@
          
     (let loop ((Ut (make-vector n-states 0)) (round 1))
       (let*   ((Ut+1 (make-vector n-states 0))
-               (policy-str (make-vector n-states "xxx"))
+               ;;(policy-str (make-vector n-states "xxx"))
                (policy     (make-vector n-states #f)))
                
         (for-each
@@ -385,16 +386,16 @@
                   )
 
              (vector-set! policy idx best-action)
-             (vector-set! policy-str idx
-                          (cond
-                           ((member s sinks)
-                            (->string (alist-ref s sink-reward-alist equal?)))
-                           ((member s keep-outs)
-                            "X")
-                           (else
-                            (action->string best-action)))
+             ;; (vector-set! policy-str idx
+             ;;              (cond
+             ;;               ((member s sinks)
+             ;;                (->string (alist-ref s sink-reward-alist equal?)))
+             ;;               ((member s keep-outs)
+             ;;                "X")
+             ;;               (else
+             ;;                (action->string best-action)))
 
-                          )
+             ;;              )
              (vector-set!
               Ut+1 idx 
               (+ r (* gamma
@@ -403,10 +404,11 @@
         (let* ((rmse (vector-rmse Ut Ut+1)))
           (cond
            ((> reltol rmse)
-            (print "converged on round "round)
-            (print (gridworld-format-vector gw Ut+1 flavor: 'num))
-            (print (gridworld-format-vector gw policy-str flavor: 'string))
-            policy ;;; return value
+            ;;(print "converged on round "round)
+            ;;(print (gridworld-format-vector gw Ut+1 flavor: 'num))
+            ;;(print (gridworld-policy-blurb  gw policy))
+            ;;(print (gridworld-format-vector gw policy-str flavor: 'string))
+            (list policy Ut+1 round);;; return value
             )
            (else
             ;;(print "Round "round":\n  Ut("Ut") -> Ut+1("Ut+1")")
@@ -420,12 +422,16 @@
   ;; A^-1*A*X = A-1*B
   ;; X = A-1*B
   ;;(print A)";;"B)
+  (dprint "begin solv")
+  (display ".")
+
   (let* ((Ainv (invert-matrix A)))
     (when (not Ainv)
       (print "Could not invert "A)
       (exit 1))
     (let* ((X   (m* Ainv B)))
       (dprint "X:"X)
+      (dprint "done solv")
       X)))
 
 
@@ -491,6 +497,7 @@
     ;; solve for Ut
     (let* ((Ut (vector-ref (matrix-transpose (solve-lineq A B)) 0)))
       (dprint "Got Ut="Ut)
+      
       Ut)))
 
 (define (improve-policy Ut gw)
@@ -542,57 +549,71 @@
                (Pt+1 (improve-policy Ut gw)))
         (cond
          ((vector-stable? Pt Pt+1)
-          (print "Arrived at policy after "round" rounds")
-          
+          (print "")
+          ;;(print "Arrived at policy after "round" rounds")
 
-          Pt) ;; return policy
+          (list Pt Ut round) ;; return val
+
+          )
          (else (loop Pt+1 (add1 round))))))))
 
+(define (initialize-Qhat gw)
+  #f)
+(define  (initialize-PIhat gw)
+  #f)
 
+(define (simulate-episode gw Qhat PIhat gamma alpha round s0)
+  ;; returns Qhat' PIhat'
+  #f
+  )
 
+(define (episode-num->alpha episode-num)
+  (/ 1 episode-num))
 
+(define (decay-epsilon epsilon)
+  (* 0.99 epsilon))
 
+(define (Q-learning gw gamma)
+  (let* ((Qhat0  (initialize-Qhat gw))
+         (PIhat0 (initialize-PIhat gw))
+         (epsilon0 1)
+         (alpha0 1)
+         (s0 '   (0 . 0)))
+  (let loop ((Qhat Qhat0) (PIhat PIhat0) (alpha alpha0) (epsilon epsilon0) (episode-num 0))
+    (match (simulate-episode gw Qhat PIhat gamma alpha round s0)
+      ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
+       (cond
+        ((vector-stable? PIhatP PIhat)
+         (list PIhatP QhatP) ;; return value
+        (else
+         (let* ((episide-numP (add1 episode-num))
+                (alphaP       (/ 1 episode-numP))
+                (epsilonP     (decay-epsilon epsilon)))
+           (loop QhatP PIhatP alphaP epsilonP episode-numP))))))
+      (else
+       (print "bad result from simulate-episode; unimplemented probably")
+       (exit 1))))))
 
-
-
-
-(define (toy)
-  (let* ((n 2)
-         (A (make-matrix n n))
-         (B (make-matrix n 1)))
-
-    (matrix-set! A 0 0 4)
-    (matrix-set! A 0 1 11)
-    (matrix-set! A 1 0 3)
-    (matrix-set! A 1 1 8)
-    (matrix-set! B 0 0 6)
-    (matrix-set! B 1 0 7)
+(define (main)
+  (let* ((gamma 0.9)
+         (gw1 (init-gridworld 3 4 keep-outs: '((1 . 1))) ))
     
-    (let* ((res (solve-lineq A B)))
-      (print res)
-      res)))
-;;(toy)
-;;(exit 0)
-           
-   
+    (match (value-iteration gw1 gamma: gamma)
+      ((policy utility rounds)
+       (print (gridworld-policy-blurb gw1 policy))
+       (print (gridworld-format-vector gw1 utility flavor: 'num)))
+      )
     
-    
-         
+    (match (policy-iteration gw1 gamma: gamma)
+      ((policy utility rounds)
+       (print (gridworld-policy-blurb gw1 policy))
+       (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
+    (match (Q-learning gw1 gamma)
+      ((PIhat Qhat)
+       (print (gridworld-policy-blurb gw1 policy))))))
 
-(let* ((gw1 (init-gridworld 3 4 keep-outs: '((1 . 1))) ))
-
-  (let* ((policy (value-iteration gw1 gamma: 0.8)))
-    (print policy))
-
-
-  (let* ((policy (policy-iteration gw1 gamma: 0.8)))
-    (print (gridworld-policy-blurb gw1 policy))
-    (print policy))
-
-
-  
-)
+(main)
 
 
 
