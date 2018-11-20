@@ -131,7 +131,7 @@
 
 (define (init-gridworld n-rows n-cols 
                       #!key
-                      (default-reward -0.06)
+                      (default-reward -0.04)
                       (s0 '(0 . 0))  ;; initial state
                       (keep-outs '())
                       (tester n-rows)
@@ -566,7 +566,7 @@
 
 ;; optimistic initialization - Encourages systematic exploration of states and actions
 ;; Optimistic Initialisation: Model-Free RL
-(define (ql-initialize-Qhat gw gamma)
+(define (ql-initialize-Qhat gw gamma strategy)
   ;; return Initialized Qhat for Q-learning 
   (let* ((states    (gridworld-states gw))
          (n-states  (length states))
@@ -583,9 +583,16 @@
                      (map (lambda (state-idx)
                             (let* ((state (list-ref states state-idx))
                                    (reward
-                                    (if (member state sinks)
-                                        (alist-ref state sink-reward-alist equal?)
-                                        heaven)))
+                                    (cond
+                                     ((member state sinks)
+                                      (alist-ref state sink-reward-alist equal?))
+                                     ((eq? strategy 'heaven)
+                                      heaven)
+                                     ((eq? strategy 'zero)
+                                      0)
+                                     (else
+                                      (print "Unknown Qhat init strategy ["strategy"]")
+                                      (exit 1)))))
                               (dprint "Reward="reward" state-idx="state-idx" state="state)
                               (list->vector
                                (map (lambda (action-idx)
@@ -650,6 +657,21 @@
                (iota n-states)))
          (PI (list->vector policy-list)))
     PI)) ;; return value
+
+(define (gridworld-Q->U gw Q)
+  (let* ((states    (gridworld-states gw))
+         (n-states  (length states))
+         (actions   (gridworld-actions))
+         (n-actions (length actions))
+         (utility-list
+          (map (lambda (state-idx)
+                 (let* ((state         (list-ref states state-idx))
+                        (Q-state-vec   (vector-ref Q state-idx)))
+                   (apply max (vector->list Q-state-vec))))
+               (iota n-states)))
+         (PI (list->vector utility-list)))
+    PI)) ;; return value
+
 
 (define (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round s0)
   ;; simulate episode for Q-learning
@@ -724,15 +746,26 @@
   ;; decay epsione for grid learning
   (* 0.99 epsilon))
 
-(define (ql-learn gw gamma #!key (min-episodes 1))
+(define (ql-learn gw gamma init-strategy #!key (min-episodes 1))
   ;; perform Q-learning for gridworld gw
-  (let* ((Qhat0    (ql-initialize-Qhat gw gamma))
+  (let* ((startable-states (lset-difference
+                            equal?
+                            (gridworld-states gw)
+                            (append (gridworld-sinks gw) (gridworld-keep-outs gw))))
+         (s0-onestate-probability (/ 1 (length startable-states)))
+         (s0-distribution (map (lambda (state) (cons s0-onestate-probability state)) startable-states))
+         (get-s0 (lambda () (select-from-discrete-random-variable s0-distribution)))
+         (Qhat0    (ql-initialize-Qhat gw gamma init-strategy))
          (PIhat0   (ql-initialize-PIhat gw))
          (epsilon0 1)
-         (alpha0   1)
-         (s0       '(0 . 0)))
-    (let loop ((Qhat Qhat0) (PIhat PIhat0) (alpha alpha0) (epsilon epsilon0) (episode-num 1))
-      (match (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round s0)
+         (alpha0   1))
+
+    (let loop ((Qhat Qhat0)
+               (PIhat PIhat0)
+               (alpha alpha0)
+               (epsilon epsilon0)
+               (episode-num 1))
+      (match (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round (get-s0))
         ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
          (cond
           ((and
@@ -751,7 +784,10 @@
 
 (define (main)
   (let* ((gamma 0.9)
-         (gw1 (init-gridworld 3 4 keep-outs: '((1 . 1))) ))
+         (gw1 (init-gridworld 3 4
+                              keep-outs: '((1 . 1))
+                              default-reward: 0.04
+                              ) ))
     
     ;;(match (value-iteration gw1 gamma: gamma)
     ;;  ((policy utility rounds)
@@ -763,9 +799,11 @@
     ;;   (print (gridworld-policy-blurb gw1 policy))
     ;;   (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
-    (match (ql-learn gw1 gamma min-episodes: 1)
+    (match (ql-learn gw1 gamma 'heaven ;; 'zero or 'heaven
+                     min-episodes: 200000)
       ((policy Q episodes)
        (print "Q-learning episodes: "episodes)
+       (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
        (print (gridworld-policy-blurb gw1 policy))))))
 
 (main)
