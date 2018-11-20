@@ -557,34 +557,47 @@
           )
          (else (loop Pt+1 (add1 round))))))))
 
-(define (initialize-Qhat gw)
-  #f)
-(define  (initialize-PIhat gw)
-  #f)
+;; optimistic initialization - Encourages systematic exploration of states and actions
+;; Optimistic Initialisation: Model-Free RL
+(define (ql-initialize-Qhat gw gamma)
+  (let* ((states   (gridworld-states gw))
+         (n-states (length states))
+         (r-hash   (gridworld-rewards gw))
+         (r-list   (map (lambda (state) (hash-table-ref r-hash state)) states))
+         (rmax     (apply max r-list))
+         (heaven   (/ rmax (- 1 gamma)))
+         (Qhat0    (list->vector (map (lambda (x) heaven) (iota n-states)))))
+    Qhat0))
 
-(define (simulate-episode gw Qhat PIhat gamma alpha round s0)
+(define  (ql-initialize-PIhat gw)
+  (let* ((states   (gridworld-states gw))
+         (n-states (length states)))
+    (list->vector (map (lambda (a) 'up) (iota n-states)))))
+
+
+(define (ql-simulate-episode gw Qhat PIhat gamma alpha round s0)
   ;; returns Qhat' PIhat'
   #f
   )
 
-(define (episode-num->alpha episode-num)
+(define (ql-episode-num->alpha episode-num)
   (/ 1 episode-num))
 
-(define (decay-epsilon epsilon)
+(define (ql-decay-epsilon epsilon)
   (* 0.99 epsilon))
 
-(define (Q-learning gw gamma)
-  (let* ((Qhat0  (initialize-Qhat gw))
-         (PIhat0 (initialize-PIhat gw))
+(define (ql-learn gw gamma)
+  (let* ((Qhat0  (ql-initialize-Qhat gw gamma))
+         (PIhat0 (ql-initialize-PIhat gw))
          (epsilon0 1)
          (alpha0 1)
          (s0 '   (0 . 0)))
   (let loop ((Qhat Qhat0) (PIhat PIhat0) (alpha alpha0) (epsilon epsilon0) (episode-num 0))
-    (match (simulate-episode gw Qhat PIhat gamma alpha round s0)
+    (match (ql-simulate-episode gw Qhat PIhat gamma alpha round s0)
       ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
        (cond
         ((vector-stable? PIhatP PIhat)
-         (list PIhatP QhatP) ;; return value
+         (list PIhatP QhatP episode-num) ;; return value
         (else
          (let* ((episide-numP (add1 episode-num))
                 (alphaP       (/ 1 episode-numP))
@@ -609,8 +622,8 @@
        (print (gridworld-policy-blurb gw1 policy))
        (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
-    (match (Q-learning gw1 gamma)
-      ((PIhat Qhat)
+    (match (ql-learn gw1 gamma)
+      ((PIhat Qhat episodes)
        (print (gridworld-policy-blurb gw1 policy))))))
 
 (main)
