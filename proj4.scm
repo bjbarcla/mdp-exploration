@@ -817,7 +817,7 @@
   (/ 1 episode-num))
 
 (define (ql-decay-epsilon epsilon decay-factor)
-  ;; decay epsione for grid learning
+  ;; decay epsione for GLIE learning
   (* decay-factor epsilon))
 
 (define (Mzero A)
@@ -899,11 +899,9 @@
 
 
 
-;;(define (gridworld-score-policy gw policy)
-  ;; given a gridworld and policy, perform 10 episodes;  return mean total reward
 
 (define (gridworld-try-policy gw policy)
-  ;; given a gridworld and policy, run an eposide, return sum of rewards over each state visited.  No discounting here.
+  ;; given a gridworld and policy, run an eposide, return sum of rewards over each state visited and count of moves.  No discounting here.
   (let* ((s0 '(0 . 0))
          (states         (gridworld-states gw))
          (n-states       (length states))
@@ -915,32 +913,50 @@
          (sinks          (gridworld-sinks gw))
          (keep-outs      (gridworld-keep-outs gw))
          (rewards        (gridworld-rewards gw)))
-    ;;(print rewards)
-    
-    (let loop ((current-state s0)  (balance 0.0))
+    (let loop ((current-state s0)  (balance 0.0) (moves 0))
+      
       ;;(print current-state)
       (let* ((this-reward  (hash-table-ref rewards current-state))
              (new-balance  (+ this-reward balance))
              )
         (cond
          ((member current-state sinks)
-          new-balance) ;; return value
+          (exit 1)
+          (list new-balance moves)) ;; return value
          ((member current-state keep-outs)
           (print "Error: policy led agent into a keepout.  Abort.")
           (exit 1))
          (else
           (let* ((action       (vector-ref policy (state->idx s0)))
                  (next-state   (gridworld-get-next-state gw current-state action)))
-            (loop next-state new-balance))))))))
+            (print current-state"->"action"->"next-state)
+            (loop next-state new-balance (add1 moves)))))))))
                   
 
-
-
+(define (gridworld-score-policy gw policy #!key (n 100))
+  ;; given a gridworld and policy, perform n episodes;  return mean total reward
+  (match (let loop ((remaining n) (scores '()) (moves '()))
+           (if (eq? 0 remaining)
+               (list scores moves)
+               (match (gridworld-try-policy gw policy)
+                 ((total-reward move-count)
+                  (loop (sub1 remaining) (cons total-reward scores) (cons move-count moves))))))
+    ((scores-list moves-list)
+     (let* ((mean   (/ (apply + scores-list) n))
+            (stddev
+             (expt (apply + (map (lambda (x) (expt (- x mean) 2)) scores-list)) 0.5))
+            (avg-moves (/ (apply + moves-list) n)))
+       
+       (list mean stddev avg-moves)))))
+    
+    
+                
+                
 
 
 (define (main)
   (let* ((gamma 0.99)
-         (gw1 (init-gridworld 6 8
+         (gw1 (init-gridworld 3 4
                               keep-outs: '((1 . 1))
                               default-reward: -0.04
                               ) ))
@@ -968,7 +984,7 @@
        ;;(pp Q)
        (print "Q-learning episodes: "episodes)
        (print (gridworld-policy-blurb gw1 policy))
-       (print "value: "(gridworld-try-policy gw1 policy))
+       (print "score (mean stddev avg-moves): "(gridworld-score-policy gw1 policy))
        (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
        
        ))
