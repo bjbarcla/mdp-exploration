@@ -1,6 +1,7 @@
 ABAGAIL
 old_results
 oldresults
+proj4
 *~
 *.pkl
 datasets/*.pkl

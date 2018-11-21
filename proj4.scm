@@ -343,6 +343,52 @@
      (exit 1))))
 
 
+(define (gridworld-U->PI gw U)
+  (let* ((states            (gridworld-states              gw))
+         (n-states          (length states)                   )
+         (sinks             (gridworld-sinks               gw))
+         (sink-reward-alist (gridworld-sink-reward-alist   gw))
+         (R                 (gridworld-rewards             gw))
+         (transitions       (gridworld-transitions         gw))
+         (keep-outs         (gridworld-keep-outs           gw))
+                  (state->idx-ht  (alist->hash-table
+                          (map (lambda (idx)
+                                 (cons (list-ref states idx) idx))
+                               (iota n-states))))
+         (state->idx     (lambda (s) (hash-table-ref state->idx-ht s)))
+         (policy            (make-vector n-states #f)))
+    
+    (for-each
+     (lambda (idx)
+       (let* ((s  (list-ref states idx))
+              (r  (hash-table-ref R s))
+              (actions-table (hash-table-ref transitions s))
+              (actions (hash-table-keys actions-table))
+              (utils-by-action-alist
+               (map
+                (lambda (action)
+                  (cons action (apply
+                                +
+                                (let ((prob+nextstate-pairs (hash-table-ref actions-table action)))
+                                  (map
+                                   (lambda (prob+nextstate-pair)
+                                     (let* ((probability  (car prob+nextstate-pair))
+                                            (next-state   (cdr prob+nextstate-pair))
+                                            (Ut_next-state (vector-ref U (state->idx next-state))))
+                                       (* probability Ut_next-state)))
+                                   prob+nextstate-pairs)))))
+                actions))
+              (best-action (argmax-alist utils-by-action-alist))
+              (best-next-util (alist-ref best-action utils-by-action-alist))
+              )
+         (vector-set! policy idx best-action)))
+     (iota n-states))
+    policy))
+         
+
+
+         
+
 (define (value-iteration gw #!key (reltol 0.0001) (gamma 0.1))
   (let* ((states            (gridworld-states              gw))
          (n-states          (length states)                   )
@@ -363,7 +409,7 @@
       (let*   ((Ut+1 (make-vector n-states 0))
                ;;(policy-str (make-vector n-states "xxx"))
                (policy     (make-vector n-states #f)))
-               
+        
         (for-each
          (lambda (idx)
            (let* ((s  (list-ref states idx))
@@ -599,6 +645,8 @@
                                       reward)
                                     (iota n-actions)))))
                           (iota n-states)))))
+    ;;(print "Qhat0="Qhat0)
+    ;;(print "r-list="r-list)
     Qhat0))
 
 (define  (ql-initialize-PIhat gw)
@@ -613,7 +661,7 @@
 
 
 (define (select-from-discrete-random-variable X)
-  (let* ((rval (random-real))
+  (let* ((rval       (random-real))
          (first-item (car X))
          (rest-items (cdr X)))
     (let loop ((probability (car first-item))
@@ -640,7 +688,8 @@
          (nextstate-distribution (hash-table-ref actions-table action))) 
     (select-from-discrete-random-variable nextstate-distribution)))
 
-(define (gridworld-Q->PI gw Q)
+(define (gridworld-Q->PIsuspect gw Q)
+
   (let* ((states    (gridworld-states gw))
          (n-states  (length states))
          (actions   (gridworld-actions))
@@ -671,6 +720,9 @@
                (iota n-states)))
          (PI (list->vector utility-list)))
     PI)) ;; return value
+
+(define (gridworld-Q->PI gw Q)
+  (gridworld-U->PI gw (gridworld-Q->U gw Q)))
 
 
 (define (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round s0)
@@ -711,7 +763,8 @@
                                     exploit-action))
              (action-idx         (action->idx action))
              ;; get s'
-             (next-state (gridworld-get-next-state gw (list-ref states state-idx) action))
+             (state (list-ref states state-idx))
+             (next-state (gridworld-get-next-state gw state action))
              (next-state-idx (state->idx next-state))
              ;; set up to learn
              (reward                   (vector-ref r-vec state-idx))
@@ -726,14 +779,17 @@
                                         (* (- 1 alpha) old-qval)
                                         (* alpha qval-to-learn))))
         ;; learn
+        (dprint "Q(s="state",a="action"): old-qval="old-qval" ; new-qval="new-qval)
+        (dprint "best-next-qval="best-next-qval" qval-to-learn="qval-to-learn" reward="reward)
         (vector-set! (vector-ref QhatP state-idx) action-idx new-qval)
 
         (if (eq? 0 (modulo t 1000 ))
-            (print t))
+            (if (not (eq? t 0 )) (print "episode move #"t)))
         
         ;; proceed
         (cond
          ((idx-is-sink? next-state-idx)
+          ;;(exit 2)
           (list QhatP (gridworld-Q->PI gw QhatP)))
          (else
           (loop next-state-idx (add1 t))))))))
@@ -742,11 +798,11 @@
   ;; calculate alpha for Q-learning given current episode number
   (/ 1 episode-num))
 
-(define (ql-decay-epsilon epsilon)
+(define (ql-decay-epsilon epsilon decay-factor)
   ;; decay epsione for grid learning
-  (* 0.99 epsilon))
+  (* decay-factor epsilon))
 
-(define (ql-learn gw gamma init-strategy #!key (min-episodes 1))
+(define (ql-learn gw gamma init-strategy #!key (min-episodes 1) (max-episodes #f) (epsilon-decay-factor 0.99))
   ;; perform Q-learning for gridworld gw
   (let* ((startable-states (lset-difference
                             equal?
@@ -768,25 +824,49 @@
       (match (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round (get-s0))
         ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
          (cond
-          ((and
-            (not (< episode-num min-episodes))
-            (vector-stable? PIhatP PIhat))
+          ((or
+            (and
+             (not (< episode-num min-episodes))
+             (vector-stable? PIhatP PIhat))
+
+            (and
+             max-episodes
+             (>= episode-num max-episodes)))
+
          (list PIhatP QhatP episode-num)) ;; return value
           (else
            (let* ((episode-numP (add1 episode-num))
                   (alphaP       (/ 1 episode-numP))
                 ;;(alphaP 1)
-                  (epsilonP     (ql-decay-epsilon epsilon)))
+                  (epsilonP     (ql-decay-epsilon epsilon epsilon-decay-factor)))
              (loop QhatP PIhatP alphaP epsilonP episode-numP)))))
         (else
          (print "bad result from simulate-episode; unimplemented probably")
          (exit 1))))))
 
+(define (print-Q gw Q)
+  (let* ((actions (gridworld-actions))
+         (states (gridworld-states gw)))
+    (print (string-join
+            (map (lambda (state-idx)
+                   (let* ((state (list-ref states state-idx)))
+                     (conc (->string state) ": "
+                           (string-join
+                            (map (lambda (action-idx)
+                                   (let* ((action (list-ref actions action-idx))
+                                          (val (matrix-ref Q state-idx action-idx)))
+                                     (conc (->string action)"="(->string val))))
+                                 (iota (length actions)))
+                            " "))))
+                 (iota (length states)))
+            "\n"))))
+
+
 (define (main)
-  (let* ((gamma 0.9)
+  (let* ((gamma 0.99)
          (gw1 (init-gridworld 3 4
                               keep-outs: '((1 . 1))
-                              default-reward: 0.04
+                              default-reward: -0.04
                               ) ))
     
     ;;(match (value-iteration gw1 gamma: gamma)
@@ -799,9 +879,16 @@
     ;;   (print (gridworld-policy-blurb gw1 policy))
     ;;   (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
-    (match (ql-learn gw1 gamma 'heaven ;; 'zero or 'heaven
-                     min-episodes: 200000)
+    (match (ql-learn gw1 gamma 'zero ;; 'zero or 'heaven
+                     epsilon-decay-factor: 0.99
+                     min-episodes: 1000000
+;                     max-episodes: 1
+                     )
       ((policy Q episodes)
+       (print "actions ref: "(gridworld-actions))
+       (print "final-Q: ")
+       (print-Q gw1 Q)
+       ;;(pp Q)
        (print "Q-learning episodes: "episodes)
        (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
        (print (gridworld-policy-blurb gw1 policy))))))
