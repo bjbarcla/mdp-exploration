@@ -760,10 +760,10 @@
                                   ((> t max-moves) #t)
                                   (else #f)))
              (exploit-action     (vector-ref PIhat state-idx))
-             (other-actions      (lset-difference eq? actions (list exploit-action)))
+             (explore-actions      (lset-difference eq? actions (list exploit-action)))
              (choose-to-explore? (< (random-real) epsilon))
              (action             (if choose-to-explore?
-                                    (list-ref other-actions (random (sub1 n-actions)))
+                                    (list-ref explore-actions (random (sub1 n-actions)))
                                     exploit-action))
              (action-idx         (action->idx action))
              ;; get s'
@@ -921,19 +921,20 @@
              )
         (cond
          ((member current-state sinks)
-          (exit 1)
+          ;;(exit 1)
           (list new-balance moves)) ;; return value
          ((member current-state keep-outs)
           (print "Error: policy led agent into a keepout.  Abort.")
-          (exit 1))
+          (exit 1)
+          )
          (else
-          (let* ((action       (vector-ref policy (state->idx s0)))
+          (let* ((action       (vector-ref policy (state->idx current-state)))
                  (next-state   (gridworld-get-next-state gw current-state action)))
-            (print current-state"->"action"->"next-state)
+            ;;(print current-state"->"action"->"next-state)
             (loop next-state new-balance (add1 moves)))))))))
                   
 
-(define (gridworld-score-policy gw policy #!key (n 100))
+(define (gridworld-score-policy gw policy #!key (n 1000))
   ;; given a gridworld and policy, perform n episodes;  return mean total reward
   (match (let loop ((remaining n) (scores '()) (moves '()))
            (if (eq? 0 remaining)
@@ -944,19 +945,15 @@
     ((scores-list moves-list)
      (let* ((mean   (/ (apply + scores-list) n))
             (stddev
-             (expt (apply + (map (lambda (x) (expt (- x mean) 2)) scores-list)) 0.5))
+             (expt (/ (apply + (map (lambda (x) (expt (- x mean) 2)) scores-list)) n) 0.5))
             (avg-moves (/ (apply + moves-list) n)))
        
        (list mean stddev avg-moves)))))
     
-    
-                
-                
-
 
 (define (main)
   (let* ((gamma 0.99)
-         (gw1 (init-gridworld 3 4
+         (gw1 (init-gridworld 6 6
                               keep-outs: '((1 . 1))
                               default-reward: -0.04
                               ) ))
@@ -979,13 +976,16 @@
 ;                     max-episodes: 1
                      )
       ((policy Q episodes)
-       (print "final-Q: ")
-       (print-Q gw1 Q)
+       ;;(print "final-Q: ")
+       ;;(print-Q gw1 Q)
        ;;(pp Q)
-       (print "Q-learning episodes: "episodes)
-       (print (gridworld-policy-blurb gw1 policy))
+
+       ;;;(print "Q-learning episodes: "episodes)
+       ;;;(print (gridworld-policy-blurb gw1 policy))
+
        (print "score (mean stddev avg-moves): "(gridworld-score-policy gw1 policy))
-       (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
+
+       ;;;(print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
        
        ))
     ))
