@@ -725,7 +725,7 @@
   (gridworld-U->PI gw (gridworld-Q->U gw Q)))
 
 
-(define (ql-simulate-episode gw Qhat PIhat gamma alpha-per-episode epsilon round s0 Q-visits alpha-update-method )
+(define (ql-simulate-episode gw Qhat PIhat gamma alpha-per-episode epsilon round s0 Q-visits alpha-update-method max-moves)
   ;; simulate episode for Q-learning
   ;; returns (list Qhat' PIhat')
   (let* ((states         (gridworld-states gw))
@@ -755,6 +755,10 @@
     (let loop ((state-idx (state->idx s0))
                (t 0))
       (let* (;; choose epsilon greedy action
+             (bankrupcy          (cond
+                                  ((not max-moves) #f)
+                                  ((> t max-moves) #t)
+                                  (else #f)))
              (exploit-action     (vector-ref PIhat state-idx))
              (other-actions      (lset-difference eq? actions (list exploit-action)))
              (choose-to-explore? (< (random-real) epsilon))
@@ -800,6 +804,8 @@
         
         ;; proceed
         (cond
+         (bankrupcy
+          (list QhatP (gridworld-Q->PI gw QhatP)))
          ((idx-is-sink? next-state-idx)
           ;;(exit 2)
           (list QhatP (gridworld-Q->PI gw QhatP)))
@@ -825,7 +831,11 @@
         (vector->list A))))
   
 
-(define (ql-learn gw gamma init-strategy #!key (min-episodes 1) (max-episodes #f) (epsilon-decay-factor 0.99) (alpha-update-method #f))
+(define (ql-learn gw gamma init-strategy
+                  #!key
+                  (min-episodes 1) (max-episodes #f)
+                  (epsilon-decay-factor 0.99) (alpha-update-method #f)
+                  (max-moves-per-episode #f))
   ;; perform Q-learning for gridworld gw
   (let* ((startable-states (lset-difference
                             equal?
@@ -845,7 +855,7 @@
                (episodic-alpha alpha0)
                (epsilon epsilon0)
                (episode-num 1))
-      (match (ql-simulate-episode gw Qhat PIhat gamma episodic-alpha epsilon round (get-s0) Q-visits alpha-update-method)
+      (match (ql-simulate-episode gw Qhat PIhat gamma episodic-alpha epsilon round (get-s0) Q-visits alpha-update-method max-moves-per-episode)
         ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
          (cond
           ((or
@@ -930,7 +940,7 @@
 
 (define (main)
   (let* ((gamma 0.99)
-         (gw1 (init-gridworld 3 4
+         (gw1 (init-gridworld 6 8
                               keep-outs: '((1 . 1))
                               default-reward: -0.04
                               ) ))
@@ -949,6 +959,7 @@
                      epsilon-decay-factor: 0.99
                      min-episodes: 10000
                      alpha-update-method: 'visitation ;; episodic or visitation
+                     max-moves-per-episode: 100
 ;                     max-episodes: 1
                      )
       ((policy Q episodes)
@@ -956,9 +967,12 @@
        (print-Q gw1 Q)
        ;;(pp Q)
        (print "Q-learning episodes: "episodes)
+       (print (gridworld-policy-blurb gw1 policy))
        (print "value: "(gridworld-try-policy gw1 policy))
        (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
-       (print (gridworld-policy-blurb gw1 policy))))))
+       
+       ))
+    ))
 
 (main)
 
