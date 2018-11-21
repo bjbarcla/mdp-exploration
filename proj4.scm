@@ -725,7 +725,7 @@
   (gridworld-U->PI gw (gridworld-Q->U gw Q)))
 
 
-(define (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round s0)
+(define (ql-simulate-episode gw Qhat PIhat gamma alpha-per-episode epsilon round s0 Q-visits alpha-update-method )
   ;; simulate episode for Q-learning
   ;; returns (list Qhat' PIhat')
   (let* ((states         (gridworld-states gw))
@@ -775,6 +775,18 @@
                                                    (iota n-actions))))
              (qval-to-learn            (+ reward (* gamma best-next-qval)))
              (old-qval                 (vector-ref (vector-ref Qhat state-idx) action-idx))
+             (visits                   (let* ((v (matrix-ref Q-visits state-idx action-idx)))
+                                         (matrix-set! Q-visits state-idx action-idx (add1 v))
+                                         (add1 v)))
+             (alpha-per-visit          (/ 1 visits))
+             (alpha                    (case alpha-update-method
+                                         ((episodic)
+                                          alpha-per-episode)
+                                         ((visitation)
+                                          alpha-per-visit)
+                                         (else
+                                          (print "Unknown alpha-update-method: ["alpha-update-method"]")
+                                          (exit 1))))
              (new-qval                 (+
                                         (* (- 1 alpha) old-qval)
                                         (* alpha qval-to-learn))))
@@ -802,7 +814,18 @@
   ;; decay epsione for grid learning
   (* decay-factor epsilon))
 
-(define (ql-learn gw gamma init-strategy #!key (min-episodes 1) (max-episodes #f) (epsilon-decay-factor 0.99))
+(define (Mzero A)
+  ;; create matrix with all elements initialized to 0, matching dimensions of input matrix
+  (list->vector
+   (map (lambda (row-vector)
+          (list->vector
+           (map (lambda (val)
+                  0)
+                (vector->list row-vector))))
+        (vector->list A))))
+  
+
+(define (ql-learn gw gamma init-strategy #!key (min-episodes 1) (max-episodes #f) (epsilon-decay-factor 0.99) (alpha-update-method #f))
   ;; perform Q-learning for gridworld gw
   (let* ((startable-states (lset-difference
                             equal?
@@ -812,16 +835,17 @@
          (s0-distribution (map (lambda (state) (cons s0-onestate-probability state)) startable-states))
          (get-s0 (lambda () (select-from-discrete-random-variable s0-distribution)))
          (Qhat0    (ql-initialize-Qhat gw gamma init-strategy))
+         (Q-visits (Mzero Qhat0))
          (PIhat0   (ql-initialize-PIhat gw))
          (epsilon0 1)
          (alpha0   1))
 
     (let loop ((Qhat Qhat0)
                (PIhat PIhat0)
-               (alpha alpha0)
+               (episodic-alpha alpha0)
                (epsilon epsilon0)
                (episode-num 1))
-      (match (ql-simulate-episode gw Qhat PIhat gamma alpha epsilon round (get-s0))
+      (match (ql-simulate-episode gw Qhat PIhat gamma episodic-alpha epsilon round (get-s0) Q-visits alpha-update-method)
         ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
          (cond
           ((or
@@ -880,8 +904,9 @@
     ;;   (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
     (match (ql-learn gw1 gamma 'zero ;; 'zero or 'heaven
-                     epsilon-decay-factor: 0.99
-                     min-episodes: 1000000
+                     epsilon-decay-factor: 0.9
+                     min-episodes: 100
+                     alpha-update-method: 'visitation ;; episodic or visitation
 ;                     max-episodes: 1
                      )
       ((policy Q episodes)
