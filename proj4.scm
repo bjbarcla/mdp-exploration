@@ -688,7 +688,7 @@
          (nextstate-distribution (hash-table-ref actions-table action))) 
     (select-from-discrete-random-variable nextstate-distribution)))
 
-(define (gridworld-Q->PIsuspect gw Q)
+(define (gridworld-Q->PIbroken gw Q) ;; this is broken.  abandoned for method deriving from working Q->U
 
   (let* ((states    (gridworld-states gw))
          (n-states  (length states))
@@ -879,11 +879,53 @@
                             (map (lambda (action-idx)
                                    (let* ((action (list-ref actions action-idx))
                                           (val (matrix-ref Q state-idx action-idx)))
-                                     (conc (->string action)"="(->string val))))
+                                     (conc (->string action)"="
+                                           (fmt #f (pad/left 5 (num val 10 2)))
+                                           )))
                                  (iota (length actions)))
                             " "))))
                  (iota (length states)))
             "\n"))))
+
+
+
+;;(define (gridworld-score-policy gw policy)
+  ;; given a gridworld and policy, perform 10 episodes;  return mean total reward
+
+(define (gridworld-try-policy gw policy)
+  ;; given a gridworld and policy, run an eposide, return sum of rewards over each state visited.  No discounting here.
+  (let* ((s0 '(0 . 0))
+         (states         (gridworld-states gw))
+         (n-states       (length states))
+         (state->idx-ht  (alist->hash-table
+                          (map (lambda (idx)
+                                 (cons (list-ref states idx) idx))
+                               (iota n-states))))
+         (state->idx     (lambda (s) (hash-table-ref state->idx-ht s)))
+         (sinks          (gridworld-sinks gw))
+         (keep-outs      (gridworld-keep-outs gw))
+         (rewards        (gridworld-rewards gw)))
+    ;;(print rewards)
+    
+    (let loop ((current-state s0)  (balance 0.0))
+      ;;(print current-state)
+      (let* ((this-reward  (hash-table-ref rewards current-state))
+             (new-balance  (+ this-reward balance))
+             )
+        (cond
+         ((member current-state sinks)
+          new-balance) ;; return value
+         ((member current-state keep-outs)
+          (print "Error: policy led agent into a keepout.  Abort.")
+          (exit 1))
+         (else
+          (let* ((action       (vector-ref policy (state->idx s0)))
+                 (next-state   (gridworld-get-next-state gw current-state action)))
+            (loop next-state new-balance))))))))
+                  
+
+
+
 
 
 (define (main)
@@ -904,17 +946,17 @@
     ;;   (print (gridworld-format-vector gw1 utility flavor: 'num))))
 
     (match (ql-learn gw1 gamma 'zero ;; 'zero or 'heaven
-                     epsilon-decay-factor: 0.9
-                     min-episodes: 100
+                     epsilon-decay-factor: 0.99
+                     min-episodes: 10000
                      alpha-update-method: 'visitation ;; episodic or visitation
 ;                     max-episodes: 1
                      )
       ((policy Q episodes)
-       (print "actions ref: "(gridworld-actions))
        (print "final-Q: ")
        (print-Q gw1 Q)
        ;;(pp Q)
        (print "Q-learning episodes: "episodes)
+       (print "value: "(gridworld-try-policy gw1 policy))
        (print (gridworld-format-vector gw1 (gridworld-Q->U gw1 Q) flavor: 'num))
        (print (gridworld-policy-blurb gw1 policy))))))
 
