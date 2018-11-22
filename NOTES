@@ -24,3 +24,37 @@ Q-learning episodes: 1000000
 |----------+----------+----------+----------|
 |     0.32 |     0.69 |     0.89 |     1.07 |
 I----------+----------+----------+----------+
+
+how many tries?
+ - want to capture variance
+ - want to not do to many
+ - expect best ((r-1) + (c-1)) * -0.04 + 2
+ - p(best path) = 0.8^(best moves) = 0.8^((r-1)+(c-1))
+ -    p(3x4) = 0.8^(2+3) = 0.32768
+ - n-trials to expect best path in sample with 99% confidence?
+    - (1 - p)^n = 0.01 [Probability of getting it wrong for n trials; solve for n]
+    - n = log(1/0.01) / log( 1/(1-p) )
+    - p=0.32768 ; n =>
+ - p(3x4) = 0.8^(2+3) = 0.32768
+   ln(1/0.01)/ln(1/(1-.32768)) : n=11.599
+   best: 2-.28 = 1.72
+- p(6x8) = 0.8^(5+7) = 0.06872
+   ln(1/0.01)/ln(1/(1-.06872)) : n=64.68
+   best: 2-(.48) = 1.52
+ - n=100 OK
+
+
+- Frontier
+   
+- grid-search
+   gamma - 0.99 0.9 0.8 0.7 0.6 0.5  (6)
+   default-reward -0.04
+   decoy reward 1
+   goal reward 2                        
+   episodes 1 2 5 10 20 50 100 200 1500 1000 2000 5000 10000 (13)
+   epsilon-decay-factor 0.9 0.99 0.999 0.9999 0.99999        (5)
+   max-moves-per-episode 50
+   alpha-update-method: visitation episodic
+
+6 * 13 * 5 = 30 * 13 = 300 + 90 = 400
+400 * 2min = 800min = 80/6 hrs = 1

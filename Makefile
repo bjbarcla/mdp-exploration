@@ -47,3 +47,20 @@ notebook: tf/$(venv_name)
 tidy:
 	find -name \*~ -print0 | xargs -0 rm -f
 
+#MENU proj4: compile proj4
+proj4: proj4.scm proj4-lib.scm
+	csc proj4.scm
+
+run: proj4
+	./proj4
+
+proj4-experiment: proj4-experiment.scm proj4-lib.scm
+	csc proj4-experiment.scm
+
+proj4-driver: proj4-driver.scm proj4-experiment
+	csc proj4-driver.scm
+
+
+epoch=1
+launch proj4-$(epoch).joblist: proj4-driver  proj4-spec.sexp proj4-experiment
+	./proj4-driver proj4-spec.sexp $(epoch) $@ experiments-plan.sexp
