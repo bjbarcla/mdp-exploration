@@ -36,8 +36,39 @@ tf/$(venv_name): tf/python3-exists
 	$(with_venv) pip3 install --upgrade $(pips)
 	touch $@
 
+
+
 mkvenv: tf/$(venv_name)
 	echo ok
+
+CHICKEN_VERSION=4.12.0
+PREFIX=$(PWD)/scratch/prefix
+CHICKEN_EGGS=random-bsd matchable typed-records linear-algebra fmt
+CSI=scratch/prefix/bin/csi
+CSC=scratch/prefix/bin/csc
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+   PLATFORM=linux
+endif
+ifeq ($(UNAME_S),Darwin)
+   PLATFORM=macosx
+endif
+
+
+
+$(PREFIX)/.dummy:
+	mkdir -p $(PREFIX)
+	touch $@
+
+$(CSC) $(CSI): tf/tf $(PREFIX)/.dummy
+	if [[ ! -e scratch/chicken-$(CHICKEN_VERSION).tar.gz ]]; then \
+          cd scratch && wget http://code.call-cc.org/releases/$(CHICKEN_VERSION)/chicken-$(CHICKEN_VERSION).tar.gz ; \
+        fi
+	cd scratch && tar xzvf chicken-$(CHICKEN_VERSION).tar.gz
+	cd scratch/chicken-$(CHICKEN_VERSION) && make PREFIX=$(PREFIX) PLATFORM=$(PLATFORM) && make PREFIX=$(PREFIX) PLATFORM=$(PLATFORM) install
+	rm -rf scratch/chicken-$(CHICKEN_VERSION)
+	$(PREFIX)/bin/chicken-install $(CHICKEN_EGGS)
 
 #MENU notebook:   start jupyter notebook .. connect to http://thishost:8888 with password mlai
 notebook: tf/$(venv_name)
@@ -48,17 +79,17 @@ tidy:
 	find -name \*~ -print0 | xargs -0 rm -f
 
 #MENU proj4: compile proj4
-proj4: proj4.scm proj4-lib.scm
-	csc proj4.scm
+proj4: proj4.scm proj4-lib.scm $(CSC)
+	$(CSC) proj4.scm
 
 run: proj4
 	./proj4
 
-proj4-experiment: proj4-experiment.scm proj4-lib.scm
-	csc proj4-experiment.scm
+proj4-experiment: proj4-experiment.scm proj4-lib.scm $(CSC)
+	$(CSC) proj4-experiment.scm
 
-proj4-driver: proj4-driver.scm proj4-experiment
-	csc proj4-driver.scm
+proj4-driver: proj4-driver.scm proj4-experiment $(CSC)
+	$(CSC) proj4-driver.scm
 
 
 epoch=1
