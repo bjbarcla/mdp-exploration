@@ -1,2 +1,2 @@
 #!/bin/bash
-smartlauncher --cores 8 --memory 32 "$@"
+smartlauncher --cores 1 --memory 2 "$@"
