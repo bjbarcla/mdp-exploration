@@ -1,4 +1,27 @@
-assignment
+
+How to run the code:
+--------------------
+
+1) acquire host with access to python3.6, a gcc toolchain, sqlite3 and
+unproxied http/https access to the internet on either MacOS or Linux platform.
+
+2) install chicken scheme by running
+  make install-chicken
+
+3) prepare experiment jobs by running
+  make testplan
+
+4) customize launcher.sh to run your favorite batch launcher (there are >5000 jobs to be run).  
+
+5) launch jobs & wait for results
+  sh proj4-1.joblist
+
+6) collect experiment results into sqlite3 database
+  make collect
+
+7) create charts
+  make charts
+
 
 You are being asked to explore Markov Decision Processes (MDPs):
 

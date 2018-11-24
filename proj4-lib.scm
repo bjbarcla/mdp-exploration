@@ -225,6 +225,31 @@
         (vector->list cvec)))
 
 
+(define (gridworld-vector->org-table gw vec #!key (flavor 'none) (cols (gridworld-n-cols gw)) (rows (gridworld-n-rows gw)))
+  (let* ((states (gridworld-states gw))
+         (n-states (length states))
+         (state->idx-ht  (alist->hash-table
+                          (map (lambda (idx)
+                                 (cons (list-ref states idx) idx))
+                               (iota n-states))))
+         (state->idx    (lambda (s) (hash-table-ref state->idx-ht s))))
+    (string-join
+     (map (lambda (row)
+            (conc "|"
+                  (string-join
+                   (map (lambda (col)
+                          (let* ((state (cons row col))
+                                 (idx   (state->idx state))
+                                 (val   (vector-ref vec idx)))
+                            (->string val)))
+                        (iota cols))
+                   "|") "|"))
+          (iota rows))
+     "\n")))
+               
+                  
+  
+
 (define (gridworld-format-vector gw vec #!key (flavor 'num) (cols (gridworld-n-cols gw)) (rows (gridworld-n-rows gw)))
   ;; print out a ascii table visualizing some aspect of gridworld represented by vector vec
   ;; contents of vector are shown by an n-rows x n-cols printout with row 0 on bottom
@@ -363,7 +388,7 @@
          (R                 (gridworld-rewards             gw))
          (transitions       (gridworld-transitions         gw))
          (keep-outs         (gridworld-keep-outs           gw))
-                  (state->idx-ht  (alist->hash-table
+         (state->idx-ht  (alist->hash-table
                           (map (lambda (idx)
                                  (cons (list-ref states idx) idx))
                                (iota n-states))))

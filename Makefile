@@ -43,7 +43,7 @@ mkvenv: tf/$(venv_name)
 
 CHICKEN_VERSION=4.12.0
 PREFIX=$(PWD)/scratch/prefix
-CHICKEN_EGGS=random-bsd matchable typed-records linear-algebra fmt
+CHICKEN_EGGS=random-bsd matchable typed-records linear-algebra fmt sql-de-lite
 CSI=scratch/prefix/bin/csi
 CSC=scratch/prefix/bin/csc
 
@@ -61,7 +61,8 @@ $(PREFIX)/.dummy:
 	mkdir -p $(PREFIX)
 	touch $@
 
-$(CSC) $(CSI): tf/tf $(PREFIX)/.dummy
+#MENU: install-chicken: install chicken scheme
+install-chicken $(CSC) $(CSI): tf/tf $(PREFIX)/.dummy
 	if [[ ! -e scratch/chicken-$(CHICKEN_VERSION).tar.gz ]]; then \
           cd scratch && wget http://code.call-cc.org/releases/$(CHICKEN_VERSION)/chicken-$(CHICKEN_VERSION).tar.gz ; \
         fi
@@ -70,7 +71,7 @@ $(CSC) $(CSI): tf/tf $(PREFIX)/.dummy
 	rm -rf scratch/chicken-$(CHICKEN_VERSION)
 	$(PREFIX)/bin/chicken-install $(CHICKEN_EGGS)
 
-#MENU notebook:   start jupyter notebook .. connect to http://thishost:8888 with password mlai
+##MENU notebook:   start jupyter notebook .. connect to http://thishost:8888 with password mlai
 notebook: tf/$(venv_name)
 	$(with_venv) cd $(PWD)/notebooks && JUPYTER_CONFIG_DIR=$(PWD) jupyter notebook --no-browser -y
 
@@ -93,11 +94,20 @@ proj4-driver: proj4-driver.scm proj4-experiment $(CSC)
 
 
 epoch=1
-launch proj4-$(epoch).joblist: proj4-driver  proj4-spec.sexp proj4-experiment
+#MENU testplan: prepare experiments for launching and create joblist file
+testplan proj4-$(epoch).joblist: proj4-driver  proj4-spec.sexp proj4-experiment
 	./proj4-driver proj4-spec.sexp $(epoch) $@ experiments-plan.sexp
 
 proj4-miner: proj4-lib.scm proj4-miner.scm results/$(epoch)-experiment-specs.sexp
 	$(CSC) proj4-miner.scm
 
-rep results.sexp.gz:  proj4-miner
+#MENU collect: collect results of experiment into sqlite3 dbase
+collect results.sexp.gz results.sqlite3:  proj4-miner
 	./proj4-miner  results/$(epoch)-experiment-specs.sexp results.sexp
+
+proj4-figures: proj4-figures.scm proj4-lib.scm
+	$(CSC) proj4-figures.scm
+
+figures: proj4-figures results.sexp.gz results.sqlite3 
+	mkdir -p figures
+	./proj4-figures
