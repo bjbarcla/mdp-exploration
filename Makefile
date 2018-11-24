@@ -93,10 +93,11 @@ proj4-driver: proj4-driver.scm proj4-experiment $(CSC)
 	$(CSC) proj4-driver.scm
 
 
-epoch=1
+#epoch=1
+epoch=2
 #MENU testplan: prepare experiments for launching and create joblist file
-testplan proj4-$(epoch).joblist: proj4-driver  proj4-spec.sexp proj4-experiment
-	./proj4-driver proj4-spec.sexp $(epoch) $@ experiments-plan.sexp
+testplan proj4-$(epoch).joblist: proj4-driver  proj4-spec-$(epoch).sexp proj4-experiment
+	./proj4-driver proj4-spec-$(epoch).sexp $(epoch) $@ experiments-plan-$(epoch).sexp
 
 proj4-miner: proj4-lib.scm proj4-miner.scm results/$(epoch)-experiment-specs.sexp
 	$(CSC) proj4-miner.scm

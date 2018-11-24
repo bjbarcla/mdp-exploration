@@ -2,7 +2,8 @@
 
 (define (main)
   (let* ((rundir    (list-ref (argv) 1))
-         (pspec     (with-input-from-file "proj4-spec.sexp" read)))
+         (epoch     (list-ref (string-split rundir "/") 1))
+         (pspec     (with-input-from-file (conc "proj4-spec-"epoch".sexp") read)))
     (change-directory rundir)
     (let* ((spec-file "experiment.sexp")
            (start-t     (current-seconds))
@@ -30,7 +31,7 @@
          (match (value-iteration gw1 gamma: gamma)
            ((policy utility rounds)
             (let* ((score (gridworld-score-policy gw1 policy max-moves: max-moves)))
-                   
+              (with-output-to-file "rounds.sexp" (lambda () (print rounds)))
               (with-output-to-file "score.sexp" (lambda () (pp score)))
               (with-output-to-file "U.sexp"  (lambda () (pp utility)))
               (with-output-to-file "U.txt" (lambda ()
@@ -48,7 +49,7 @@
          (match (policy-iteration gw1 gamma: gamma)
            ((policy utility rounds)
             (let* ((score (gridworld-score-policy gw1 policy max-moves: max-moves)))
-                   
+              (with-output-to-file "rounds.sexp" (lambda () (print rounds)))
               (with-output-to-file "score.sexp" (lambda () (pp score)))
               (with-output-to-file "U.sexp"  (lambda () (pp utility)))
               (with-output-to-file "U.txt" (lambda ()
