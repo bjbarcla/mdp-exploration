@@ -106,9 +106,9 @@ proj4-miner: proj4-lib.scm proj4-miner.scm results/$(epoch)-experiment-specs.sex
 collect results.sexp.gz results.sqlite3:  proj4-miner
 	./proj4-miner  results/$(epoch)-experiment-specs.sexp $(epoch)-results.sexp $(epoch)
 
-proj4-figures: proj4-figures.scm proj4-lib.scm
+proj4-figures: proj4-figures.scm 
 	$(CSC) proj4-figures.scm
 
-figures: proj4-figures results.sexp.gz results.sqlite3 
+figures: proj4-figures #results.sexp.gz results.sqlite3 
 	mkdir -p figures
-	./proj4-figures
+	./proj4-figures $(epoch)

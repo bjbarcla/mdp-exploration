@@ -35,7 +35,13 @@
   #f)
 
 
-(let* ((pspec (with-input-from-file "proj4-spec.sexp" read))
+;;(define (value-iteration-org-table gw 
+         
+
+(print (argv))
+(let* ((epoch   (list-ref (argv) 1))
+       ;;(results (with-input-from-pipe (conc "zcat "epoch"-results.sexp.gz") read))
+       (pspec (with-input-from-file (conc "proj4-spec-"epoch".sexp") read))
        (default-reward (car (alist-ref 'default-reward
                                        (alist-ref 'param-ranges
                                                   pspec))))
@@ -56,17 +62,33 @@
                                                 (( ,(modulo -2 n-rows) . ,(modulo -2 n-cols) ) . 1)))))) ;; opposite corner to s0, moved 1 row and col inward
                 gw-dims-list)))
   (str->file
-   (string-join
-    (map
-     (lambda (gwitem)
-       (let* ((gwname (car gwitem))
-              (gw (cdr gwitem)))
-         (conc
-          "* "gwname"\n"
-          (gridworld-rewards-figure gw default-reward)
-          "\n")))
-     gwitems)
-    "\n")
+   (apply
+    string-join
+    `(
+
+      "* Gridworld Environments"
+      ;; ,@(map
+      ;;    (lambda (gwitem)
+      ;;      (let* ((gwname (car gwitem)) (gw (cdr gwitem)))
+      ;;        (conc
+      ;;         "** "gwname"\n"
+      ;;         (gridworld-rewards-figure gw default-reward)
+      ;;         "\n\n")))
+      ;;    gwitems)
+
+      ;; "\n* Value Iteration Results"
+      ;; ,@(map
+      ;;    (lambda (gwitem)
+      ;;      (let* ((gwname (car gwitem)) (gw (cdr gwitem)))
+      ;;        (conc
+      ;;         "** "gwname"\n"
+      ;;         (gridworld-rewards-figure gw default-reward)
+      ;;         "\n\n")))
+      ;;    gwitems)
+      
+      "\n"
+
+      ))
    "figures/figures.org"))
 
   
