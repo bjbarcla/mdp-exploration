@@ -70,9 +70,10 @@
                           max-moves-per-episode: (alist-ref 'max-moves-per-episode spec)
                           ;;max-episodes: 1
                           )
-           ((policy Q episodes)
+           ((policy Q episodes score-alist)
             (let* ((score (gridworld-score-policy gw1 policy max-moves: (alist-ref 'max-moves-per-episode spec)))
                    (U (gridworld-Q->U gw1 Q)))
+              (with-output-to-file "score-by-episode.sexp" (lambda () (pp score-alist)))
               (with-output-to-file "score.sexp" (lambda () (pp score)))
               (with-output-to-file "U.sexp"  (lambda () (pp U)))
               (with-output-to-file "U.txt" (lambda ()

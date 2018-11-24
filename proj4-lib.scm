@@ -848,12 +848,13 @@
          (PIhat0   (ql-initialize-PIhat gw))
          (epsilon0 1)
          (alpha0   1))
-
+    
     (let loop ((Qhat Qhat0)
                (PIhat PIhat0)
                (episodic-alpha alpha0)
                (epsilon epsilon0)
-               (episode-num 1))
+               (episode-num 1)
+               (score-alist '()))
       (match (ql-simulate-episode gw Qhat PIhat gamma episodic-alpha epsilon round (get-s0) Q-visits alpha-update-method max-moves-per-episode)
         ((QhatP PIhatP)  ;; P suffix means "prime" or "next"
          (cond
@@ -866,13 +867,19 @@
              max-episodes
              (>= episode-num max-episodes)))
 
-         (list PIhatP QhatP episode-num)) ;; return value
+         (list PIhatP QhatP episode-num score-alist)) ;; return value
           (else
-           (let* ((episode-numP (add1 episode-num))
+           (let* ((new-score-alist
+                   (if (eq? 0 (modulo episode-num 100 ))
+                       (cons (cons episode-num
+                             (gridworld-score-policy gw PIhatP max-moves: 50))
+                             score-alist)
+                       score-alist))
+                  (episode-numP (add1 episode-num))
                   (alphaP       (/ 1 episode-numP))
                 ;;(alphaP 1)
                   (epsilonP     (ql-decay-epsilon epsilon epsilon-decay-factor)))
-             (loop QhatP PIhatP alphaP epsilonP episode-numP)))))
+             (loop QhatP PIhatP alphaP epsilonP episode-numP new-score-alist)))))
         (else
          (print "bad result from simulate-episode; unimplemented probably")
          (exit 1))))))
