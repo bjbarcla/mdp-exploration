@@ -234,17 +234,17 @@
                                (iota n-states))))
          (state->idx    (lambda (s) (hash-table-ref state->idx-ht s))))
     (string-join
-     (map (lambda (row)
-            (conc "|"
-                  (string-join
-                   (map (lambda (col)
-                          (let* ((state (cons row col))
-                                 (idx   (state->idx state))
-                                 (val   (vector-ref vec idx)))
-                            (->string val)))
-                        (iota cols))
-                   "|") "|"))
-          (iota rows))
+     (reverse (map (lambda (row)
+                     (conc "|"
+                           (string-join
+                            (map (lambda (col)
+                                   (let* ((state (cons row col))
+                                          (idx   (state->idx state))
+                                          (val   (vector-ref vec idx)))
+                                     (->string val)))
+                                 (iota cols))
+                            "|") "|"))
+                   (iota rows)))
      "\n")))
                
                   
