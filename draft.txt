@@ -1,4 +1,4 @@
-
+3
 We choose two environments to explore by the various agents.  The
 first environment is a 3x4 grid-world and the second is a 4x6
 grid-world.  All states, unless the state is a sink state, will share

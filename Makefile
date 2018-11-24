@@ -104,7 +104,7 @@ proj4-miner: proj4-lib.scm proj4-miner.scm results/$(epoch)-experiment-specs.sex
 
 #MENU collect: collect results of experiment into sqlite3 dbase
 collect results.sexp.gz results.sqlite3:  proj4-miner
-	./proj4-miner  results/$(epoch)-experiment-specs.sexp results.sexp
+	./proj4-miner  results/$(epoch)-experiment-specs.sexp $(epoch)-results.sexp $(epoch)
 
 proj4-figures: proj4-figures.scm proj4-lib.scm
 	$(CSC) proj4-figures.scm

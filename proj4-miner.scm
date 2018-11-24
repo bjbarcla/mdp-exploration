@@ -16,9 +16,10 @@
       
 
 (let* ((files '("score.sexp" "time.txt" "PI.sexp" "U.sexp"))
-       (dbfile "results.sqlite3")
+       (epoch (list-ref (argv) 3 ))
+       (dbfile (conc "results-"epoch".sqlite3"))
        (db (create-clobber-db dbfile))
-       (spec    (with-input-from-file "proj4-spec.sexp" read))
+       (spec    (with-input-from-file (conc "proj4-spec-"epoch".sexp") read))
        (results (with-input-from-file (cadr (argv)) read))
        (outfile (list-ref (argv) 2))
        (out
@@ -31,6 +32,14 @@
                                 (if complete?
                                     (let* ((time  (with-input-from-file (conc rundir "/time.txt") read))
                                            (score (with-input-from-file (conc rundir "/score.sexp") read))
+                                           (rf    (conc rundir "/rounds.sexp"))
+                                           (rounds (if (file-exists? rf)
+                                                       (with-input-from-file rf read)
+                                                       0))
+                                           (sbef  (conc rundir "/score-by-episode.sexp"))
+                                           (sbye  (if (file-exists? sbef)
+                                                      (with-input-from-file sbef read)
+                                                      #f))
                                            (PI    (with-input-from-file (conc rundir "/PI.sexp") read))
                                            (U     (with-input-from-file (conc rundir "/U.sexp") read))
                                            (gridworld (alist-ref 'gridworld exp))
@@ -41,7 +50,7 @@
                                                              (alist-ref 'decoy-reward exp)", "
                                                              (alist-ref 'goal-reward exp)", "
                                                              (alist-ref 'gamma exp)", "
-                                                             (or (alist-ref 'n-episodes exp) 0)", "
+                                                             (or (alist-ref 'n-episodes exp) rounds)", "
                                                              (or (alist-ref 'epsilon-decay-factor exp) 0)", "
                                                              (or (alist-ref 'max-moves-per-episode exp) 0)", '"
                                                              (->string (alist-ref 'alpha-update-method exp))"', "
@@ -55,12 +64,17 @@
                                       (print rundir" "time" "score)
                                       `(
                                         ,@exp
+                                        ,@(if (not (eq? rounds 0))
+                                               (list (cons 'rounds rounds))
+                                               '())
+                                        ,@(if sbye
+                                              (list (cons 'score-by-episode sbye))
+                                              '())
                                         (time . ,time)
                                         (score . ,score)
                                         (PI . ,PI)
                                         (U . ,U)
                                         )
-                                      
                                       )
                                     #f)
                                 ))

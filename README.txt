@@ -19,8 +19,8 @@ unproxied http/https access to the internet on either MacOS or Linux platform.
 6) collect experiment results into sqlite3 database
   make collect
 
-7) create charts
-  make charts
+7) create figures
+  make figures
 
 
 You are being asked to explore Markov Decision Processes (MDPs):
