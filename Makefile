@@ -6,6 +6,8 @@ python_exe=python3.6
 datasets_dir=$(PWD)/datasets
 pips=jupyter scipy pandas matplotlib scikit-learn kaggle seaborn numpy pyyaml google-cloud-bigquery xlrd graphviz geopy kaggle psutil memory_profiler pymdptoolbox cvxopt
 
+CHICKEN_VERSION=4.12.0
+CHICKEN_EGGS=random-bsd matchable typed-records linear-algebra fmt sql-de-lite
 
 venv_name=venv
 
@@ -41,9 +43,9 @@ tf/$(venv_name): tf/python3-exists
 mkvenv: tf/$(venv_name)
 	echo ok
 
-CHICKEN_VERSION=4.12.0
+
 PREFIX=$(PWD)/scratch/prefix
-CHICKEN_EGGS=random-bsd matchable typed-records linear-algebra fmt sql-de-lite
+
 CSI=scratch/prefix/bin/csi
 CSC=scratch/prefix/bin/csc
 
