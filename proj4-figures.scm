@@ -156,9 +156,9 @@
                     (gw-sql-name (string-join (map ->string (list (gridworld-n-rows gw) (gridworld-n-cols gw))) "x"))
                     
                     ;; CREATE TABLE results (epoch, algo, gridworld, decoy_reward, goal_reward, gamma, episodes, epsilon_decay_factor, max_moves_per_episode, alpha_update_method, time, score_mean, score_stddev, score_avg_moves, rundir);
-                    (alt-field-names (string-split "score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|episodes|Runtime (seconds)" "|"))
+                    (alt-field-names (string-split "score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)" "|"))
                     (org-table (sql->orgtable db
-                                              '("score_mean" "qinit_method" "gamma" "episodes" "epsilon_decay_factor" "alpha_update_method" "max_moves_per_episode"   "score_avg_moves" "episodes" "time")
+                                              '("score_mean" "qinit_method" "gamma" "episodes" "epsilon_decay_factor" "alpha_update_method" "max_moves_per_episode"   "score_avg_moves" "time")
                                               "gridworld=? and algo=? and goal_reward=2 order by score_mean desc limit 40"
                                               (list gw-sql-name "q-learning")
                                               alt-field-names: alt-field-names
