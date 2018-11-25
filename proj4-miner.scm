@@ -7,7 +7,7 @@
 (define (create-clobber-db dbfile)
   (if (file-exists? dbfile) (delete-file dbfile))
   (let* ((db (open-database dbfile))
-         (schema-sql "create table results (epoch, algo, gridworld, decoy_reward, goal_reward, gamma, episodes, epsilon_decay_factor, max_moves_per_episode, alpha_update_method, time, score_mean, score_stddev, score_avg_moves, rundir);")
+         (schema-sql "create table results (epoch, algo, gridworld, decoy_reward, goal_reward, gamma, episodes, epsilon_decay_factor, max_moves_per_episode, alpha_update_method, qinit_method, time, score_mean, score_stddev, score_avg_moves, rundir);")
          (stm (sql db schema-sql))
          )
     (query fetch-alists stm)
@@ -54,13 +54,15 @@
                                                              (or (alist-ref 'epsilon-decay-factor exp) 0)", "
                                                              (or (alist-ref 'max-moves-per-episode exp) 0)", '"
                                                              (->string (alist-ref 'alpha-update-method exp))"', "
+                                                             "'"(->string (alist-ref 'qinit-method exp))"', "
                                                              time", "
                                                              (car score)", "
                                                              (cadr score)", "
                                                              (caddr score)", '"
                                                              rundir"')"))
                                            )
-                                      (query fetch-alists (sql db insert-sql))
+                                      (print insert-sql)
+                                      (exec (sql db insert-sql))
                                       (print rundir" "time" "score)
                                       `(
                                         ,@exp
