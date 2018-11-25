@@ -61,7 +61,7 @@
 
 
 * Q-Learning Results
-** SmallGW Q-learned policy scores (top 20)
+** SmallGW Q-learned policy scores (top 15)
 |score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)|
 |1.66|zero|0.80|10000|0.90|visitation|500|6.13|1.00|
 |1.66|zero|0.90|100|0.90|visitation|50|6.22|0.00|
@@ -78,15 +78,10 @@
 |1.61|zero|0.60|10|1.00|visitation|500|6.19|0.00|
 |1.61|zero|0.90|1000|0.90|visitation|50|5.83|1.00|
 |1.61|zero|0.80|1000|0.90|visitation|50|5.83|0.00|
-|1.61|zero|0.50|10|1.00|episodic|50|5.83|0.00|
-|1.60|zero|0.90|10000|0.99|visitation|500|5.89|1.00|
-|1.60|zero|0.90|100|0.99|visitation|500|5.72|0.00|
-|1.60|zero|0.50|10|1.00|episodic|50|5.97|0.00|
-|1.60|zero|0.90|10000|0.99|visitation|50|5.48|2.00|
 
 
 
-** LargeGW Q-learned policy scores (top 20)
+** LargeGW Q-learned policy scores (top 15)
 |score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)|
 |1.30|zero|0.90|100000|0.90|visitation|500|14.76|49.00|
 |1.29|zero|0.90|100000|0.90|visitation|50|14.64|62.00|
@@ -103,11 +98,6 @@
 |0.85|zero|0.80|1000|0.90|visitation|50|23.50|1.00|
 |0.82|zero|0.80|10000|1.00|visitation|50|22.33|5.00|
 |0.79|zero|0.80|10000|0.99|visitation|50|23.20|5.00|
-|0.76|zero|0.80|100000|0.99|visitation|50|25.13|48.00|
-|0.73|zero|0.70|100|0.99|episodic|500|15|0.00|
-|0.68|zero|0.50|100|0.99|episodic|500|13.40|0.00|
-|0.64|zero|0.80|10000|1.00|visitation|500|30.14|9.00|
-|0.48|zero|0.90|100000|1.00|episodic|500|13.22|67.00|
 
 
 

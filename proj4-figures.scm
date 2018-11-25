@@ -159,13 +159,13 @@
                     (alt-field-names (string-split "score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)" "|"))
                     (org-table (sql->orgtable db
                                               '("score_mean" "qinit_method" "gamma" "episodes" "epsilon_decay_factor" "alpha_update_method" "max_moves_per_episode"   "score_avg_moves" "time")
-                                              "gridworld=? and algo=? and goal_reward=2 order by score_mean desc limit 20"
+                                              "gridworld=? and algo=? and goal_reward=2 order by score_mean desc limit 15"
                                               (list gw-sql-name "q-learning")
                                               alt-field-names: alt-field-names
                                               )))
                
                (conc
-                "** "gwname" Q-learned policy scores (top 20)\n"
+                "** "gwname" Q-learned policy scores (top 15)\n"
                 org-table
                 "\n"
                 "\n\n")))
