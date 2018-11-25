@@ -129,17 +129,17 @@
      (string-join
       `(
         
-        "* Gridworld Environments"
+        "\n* Gridworld Environments\n"
         ,@(map
            (lambda (gwitem)
              (let* ((gwname (car gwitem)) (gw (cdr gwitem)))
                (conc
-                "** "gwname"\n"
+                "\n** "gwname"\n"
                 (gridworld-rewards-figure gw default-reward)
                 "\n\n")))
            gwitems)
         
-        "\n* Value Iteration Results" 
+        "\n* Value Iteration Results\n" 
         ,@(map
            (lambda (gwitem)
              (let* ((gwname    (car gwitem))
@@ -152,14 +152,14 @@
                                               alt-field-names: '("gamma" "score" "avg moves per episode" "rounds" "runtime"))))
                
                (conc
-                "** "gwname" Performance vs. Gamma\n"
+                "\n** "gwname" Performance vs. Gamma\n"
                 org-table
                 "\n"
                 "\n\n")))
            gwitems)
         
         "\n"
-        "\n* Policy Iteration Results" 
+        "\n* Policy Iteration Results\n" 
         ,@(map
            (lambda (gwitem)
              (let* ((gwname    (car gwitem))
@@ -172,13 +172,13 @@
                                               alt-field-names: '("gamma" "score" "avg moves per episode" "rounds" "runtime"))))
                
                (conc
-                "** "gwname" Performance vs. Gamma\n"
+                "\n** "gwname" Performance vs. Gamma\n"
                 org-table
                 "\n"
                 "\n\n")))
            gwitems)
         
-        "\n* Q-Learning Results"
+        "\n* Q-Learning Results\n"
         ,@(map
            (lambda (gwitem)
              (let* ((gwname    (car gwitem))
@@ -195,7 +195,7 @@
                                               )))
                
                (conc
-                "** "gwname" Q-learned policy scores (top 15)\n"
+                "\n** "gwname" Q-learned policy scores (top 15)\n"
                 org-table
                 "\n"
                 "\n\n")))
@@ -253,12 +253,10 @@
                              rows)
                             "\n")))
                gwitems)
-
-
-
-
-        "\n"))
+        )
+      "\n")
      "figures/figures.org")))
+
 (main)
      
   

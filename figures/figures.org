@@ -1,9 +1,15 @@
-* Gridworld Environments ** SmallGW
+
+* Gridworld Environments
+
+
+** SmallGW
 |-0.04|-0.04|-0.04|2|
 |-0.04|X|1|-0.04|
 |-0.04|-0.04|-0.04|-0.04|
 
- ** LargeGW
+
+
+** LargeGW
 |-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|2|
 |-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|1|-0.04|
 |-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|
@@ -11,8 +17,12 @@
 |-0.04|X|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|
 |-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|-0.04|
 
- 
-* Value Iteration Results ** SmallGW Performance vs. Gamma
+
+
+* Value Iteration Results
+
+
+** SmallGW Performance vs. Gamma
 |gamma|score|avg moves per episode|rounds|runtime|
 |0.50|1.01|4.06|10|0.00|
 |0.60|1.01|4.06|13|0.00|
@@ -21,7 +31,9 @@
 |0.90|1.64|6.04|58|0.00|
 
 
- ** LargeGW Performance vs. Gamma
+
+
+** LargeGW Performance vs. Gamma
 |gamma|score|avg moves per episode|rounds|runtime|
 |0.50|0.59|12.24|13|0.00|
 |0.60|0.60|12.46|16|0.00|
@@ -30,9 +42,14 @@
 |0.90|1.30|14.38|58|0.00|
 
 
- 
- 
-* Policy Iteration Results ** SmallGW Performance vs. Gamma
+
+
+
+
+* Policy Iteration Results
+
+
+** SmallGW Performance vs. Gamma
 |gamma|score|avg moves per episode|rounds|runtime|
 |0.50|1.04|4.29|3|0.00|
 |0.60|0.98|4.13|3|0.00|
@@ -41,7 +58,9 @@
 |0.90|1.61|6.27|3|0.00|
 
 
- ** LargeGW Performance vs. Gamma
+
+
+** LargeGW Performance vs. Gamma
 |gamma|score|avg moves per episode|rounds|runtime|
 |0.60|0.61|12.66|6|0.00|
 |0.70|0.64|12.32|6|1.00|
@@ -49,8 +68,12 @@
 |0.90|1.29|14.52|5|0.00|
 
 
- 
-* Q-Learning Results ** SmallGW Q-learned policy scores (top 15)
+
+
+* Q-Learning Results
+
+
+** SmallGW Q-learned policy scores (top 15)
 |score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)|
 |1.66|zero|0.80|10000|0.90|visitation|500|6.13|1.00|
 |1.66|zero|0.90|100|0.90|visitation|50|6.22|0.00|
@@ -69,7 +92,9 @@
 |1.61|zero|0.80|1000|0.90|visitation|50|5.83|0.00|
 
 
- ** LargeGW Q-learned policy scores (top 15)
+
+
+** LargeGW Q-learned policy scores (top 15)
 |score|Q init method|Gamma|Training Episode Count|Epsilon Decay Factor|Alpha Update Method|Max moves to bankruptcy|Average moves per episode|Runtime (seconds)|
 |1.30|zero|0.90|100000|0.90|visitation|500|14.76|49.00|
 |1.29|zero|0.90|100000|0.90|visitation|50|14.64|62.00|
@@ -88,9 +113,11 @@
 |0.79|zero|0.80|10000|0.99|visitation|50|23.20|5.00|
 
 
- 
+
+
 * Selected policy and utility maps
- 
+
+
 ** Policy Plot for value-iteration experiment for SmallGW with top  score 1.6384
     : +---+---+---+---+
     : | > | > | > | 2 |
@@ -146,7 +173,8 @@
     : |----------+----------+----------+----------|
     : |     0.46 |     0.63 |     0.85 |     1.13 |
     : I----------+----------+----------+----------+
- 
+
+
 ** Policy Plot for value-iteration experiment for LargeGW with top  score 1.2948
     : +---+---+---+---+---+---+---+---+
     : | > | > | > | > | > | > | > | 2 |
@@ -238,8 +266,10 @@
     : |----------+----------+----------+----------+----------+----------+----------+----------|
     : |    -0.00 |     0.07 |     0.18 |     0.25 |     0.36 |     0.47 |     0.58 |     0.73 |
     : I----------+----------+----------+----------+----------+----------+----------+----------+
- 
-* Selected learning curves 
+
+
+* Selected learning curves
+
 ** Learning Curve for Q-learning experiment for SmallGW with score 1.6648
 |Episode number|score|stddev|avg moves per episode|
 |100|1.60|0.36|5.63|
@@ -338,7 +368,8 @@
 |85100|1.52|0.41|5.75|
 |90100|1.61|0.36|5.83|
 |95100|1.56|0.40|5.66|
-|100000|1.66| 
+|100000|1.66|
+
 ** Learning Curve for Q-learning experiment for LargeGW with score 1.2996
 |Episode number|score|stddev|avg moves per episode|
 |100|-2.08|0.00|51|
@@ -457,5 +488,4 @@
 |85100|0.85|0.64|23.63|
 |90100|0.92|0.58|22.71|
 |95100|0.88|0.65|24.78|
-|100000|1.20| 
-
+|100000|1.20|
