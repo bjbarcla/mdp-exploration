@@ -13,6 +13,15 @@
                            ))
    (else (->string x))))
 
+(define (multiline-str->org str)
+  (conc
+   (string-join
+    (map (lambda (s) (conc "    : " s))
+         (string-split str "\n"))
+    "\n")
+   "\n"))
+
+
 (define (row->org-row row)
   (conc "|"
         (string-join (map datum->org-cell row) "|")
@@ -64,6 +73,27 @@
     ))
 
 
+
+(define (experiment->learning-org-table rundir episodes score)
+  (let* ((lrfile (conc rundir "/score-by-episode.sexp"))
+         (max-samples 20)
+         (lr (reverse (with-input-from-file lrfile read)))
+         (n-lr (length lr))
+         (idxs
+          (if (< n-lr max-samples)
+              (iota n-lr)
+              (let* ((step (inexact->exact (round (/ n-lr max-samples))))
+                     (idxs (let loop ((tidxs '(0)))
+                             (if (> (+ step (car tidxs)) n-lr)
+                                 tidxs
+                                 (loop (cons (+ step (car tidxs)) tidxs))))))
+                idxs))))
+    (print "n-lr="n-lr "idxs="idxs)
+         
+    (rows->orgtable
+     (cons (list "Episode number" "score" "stddev" "avg moves per episode")
+           (reverse (cons (list episodes score) (map (lambda (x) (list-ref lr x)) idxs)))
+           ))))
 
 (define (str->file str filename)
   (with-output-to-file filename (lambda () (print str)))
@@ -170,9 +200,64 @@
                 "\n"
                 "\n\n")))
            gwitems)
+
+
+
+        "\n* Selected policy and utility maps\n"
+        ,@(map
+           (lambda (gwitem)
+             (let* ((gwname      (car gwitem))
+                    (gw          (cdr gwitem))
+                    (gw-sql-name (string-join (map ->string (list (gridworld-n-rows gw) (gridworld-n-cols gw))) "x"))
+                    (rows        (map
+                                  (lambda (algo)
+                                    (car
+                                     (sql->rows db '("algo" "score_mean" "rundir" "episodes")
+                                               "gridworld=? and algo=? and goal_reward=2 order by score_mean desc limit 1"
+                                               (list gw-sql-name algo))))
+                                  (list "value-iteration" "policy-iteration" "q-learning"))))
+               (pp rows)
+               (string-join (map
+                             (match-lambda
+                              ((algo score rundir episodes)
+                               (let* ((policy (with-input-from-file (conc rundir "/PI.sexp") read))
+                                      (utility (with-input-from-file (conc rundir "/U.sexp") read)))
+                                 (conc
+                                  "\n** Policy Plot for "algo" experiment for "gwname" with top  score "(->string score)"\n"
+                                  (multiline-str->org (gridworld-policy-blurb gw policy))
+                                  "\n** Utility Plot for "algo" experiment for "gwname" with top score "(->string score)"\n"
+                                  (multiline-str->org (gridworld-format-vector gw utility flavor: 'num))
+                                  
+                                ))))
+                             rows)
+                            "\n")))
+           gwitems)
+        
+
         
         
-        ) "\n")
+        "\n* Selected learning curves"
+        ,@(map
+           (lambda (gwitem)
+             (let* ((gwname    (car gwitem))
+                    (gw        (cdr gwitem))
+                    (gw-sql-name (string-join (map ->string (list (gridworld-n-rows gw) (gridworld-n-cols gw))) "x"))
+                    (rows      (sql->rows db '("score_mean" "rundir" "episodes")
+                                          "gridworld=? and algo=? and goal_reward=2 order by score_mean desc limit ?"
+                                          (list gw-sql-name "q-learning" 5))))
+               (string-join (map
+                             (match-lambda
+                              ((score rundir episodes)
+                               (conc "\n** Learning Curve for Q-learning experiment for "gwname" with score "(->string score)"\n"
+                                     (experiment->learning-org-table rundir episodes score))))
+                             rows)
+                            "\n")))
+               gwitems)
+
+
+
+
+        "\n"))
      "figures/figures.org")))
 (main)
      
