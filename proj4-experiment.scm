@@ -11,6 +11,7 @@
            (spec        (with-input-from-file spec-file read))
            (algo        (alist-ref 'algo spec))
            (gamma       (alist-ref 'gamma spec))
+           (qinit-method (alist-ref 'qinit-method spec))
            (gw-span     (alist-ref 'gridworld spec))
            (n-rows        (car gw-span))
            (n-cols        (cadr gw-span))
@@ -63,7 +64,7 @@
               (print (gridworld-format-vector gw1 utility flavor: 'num))
               (print policy" score (mean stddev avg-moves): "score)))))
         ((q-learning)
-         (match (ql-learn gw1 gamma 'zero ;; 'zero or 'heaven
+         (match (ql-learn gw1 gamma qinit-method ;; 'zero or 'heaven
                           epsilon-decay-factor: (alist-ref 'epsilon-decay-factor spec)
                           min-episodes: (alist-ref 'n-episodes spec)
                           alpha-update-method: (alist-ref 'alpha-update-method spec) ;; episodic or visitation
